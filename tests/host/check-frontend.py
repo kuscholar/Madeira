@@ -225,6 +225,13 @@ ProMotionIntent.has40Cap = false; game.applyEnvironment()
 expect(vsync == 1, "a saved 40 FPS runs as 60 without the 40 FPS cap")
 ProMotionIntent.has40Cap = true; game.fpsMode = 1; game.applyEnvironment()
 expect(vsync == 1, "60 FPS applied")
+// WGI selection exposes the existing XInput pad to Unity's newer input API.
+var wgiEntry = LibraryEntry(title: "WGI", relativePath: "game.exe", bits: 64)
+wgiEntry.controllerMode = "wgi"; wgiEntry.applyEnvironment()
+expect(env("MADEIRA_WGI_HOST_PADS") == "1" && env("MADEIRA_INPUT_FOREGROUND") == "1", "WGI mode exports enumeration and foreground compatibility")
+wgiEntry.controllerMode = nil; wgiEntry.applyEnvironment()
+expect(env("MADEIRA_WGI_HOST_PADS") == nil && env("MADEIRA_INPUT_FOREGROUND") == nil, "other games do not inherit WGI compatibility")
+
 // "XInput and DirectInput": MADEIRA_DINPUT_PAD for that game's launch only; the
 // next launch without the choice clears it unless madeira.cfg sets it.
 game.controllerMode = "dinput"; game.applyEnvironment()
@@ -430,12 +437,24 @@ pump()
 expect(got == ["up", "right", "accept"], "library owns input: d-pad, stick and A navigate (\(got))")
 expect(c.ownsInput, "library owns input")
 got = []
+c.sample(buttons: 2, lx: 0, ly: 0)
+pump()
+Thread.sleep(forTimeInterval: 0.42)
+c.sample(buttons: 2, lx: 0, ly: 0)
+pump()
+c.sample(buttons: 0, lx: 0, ly: 0)
+expect(got == ["down", "down"], "held direction repeats after initial delay")
+got = []
 c.configure(enabled: true, ownsInput: false)
 c.sample(buttons: 0x0010, lx: 0, ly: 0); c.sample(buttons: 0, lx: 0, ly: 0)
 c.sample(buttons: 0x0030, lx: 0, ly: 0); c.sample(buttons: 0, lx: 0, ly: 0)
 pump()
 expect(got == ["menu"], "in a session only Back+Start opens the menu (\(got))")
 expect(!c.ownsInput, "the game owns input in a session")
+got = []
+c.sample(buttons: 0x400, lx: 0, ly: 0); c.sample(buttons: 0, lx: 0, ly: 0)
+pump()
+expect(got == ["menu"], "Home opens the session menu without replacing game Start")
 got = []
 c.configure(enabled: false, ownsInput: true)
 c.sample(buttons: 0x1000, lx: 0, ly: 0); pump()

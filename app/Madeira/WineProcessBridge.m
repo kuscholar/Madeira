@@ -1239,6 +1239,7 @@ static void *wine_process_thread(void *arg) {
                 static const char *const per_launch[] = {
                     "MADEIRA_FASTSYNC", "MADEIRA_FASTSYNC_SEM", "MADEIRA_CPU_COUNT", "DXMT_D9_ANISO_LIMIT",
                     "FEX_X87REDUCEDPRECISION",   /* ml1184: the game's "Reduced-precision x87" */
+                    "MADEIRA_WGI_HOST_PADS", "MADEIRA_INPUT_FOREGROUND",
                     "MADEIRA_DINPUT_PAD",        /* ml1240: the game's "XInput and DirectInput" */
                     "MADEIRA_FEX_AVX",           /* ml1184: the game's "AVX and AVX2" */
                     "MADEIRA_FRAMEGEN",          /* ml1184: the game's "Frame generation" */
@@ -1850,6 +1851,8 @@ static void *wine_process_thread(void *arg) {
         unsetenv("MADEIRA_FASTSYNC"); unsetenv("MADEIRA_FASTSYNC_SEM");
         unsetenv("MADEIRA_CPU_COUNT"); unsetenv("DXMT_D9_ANISO_LIMIT");
         unsetenv("FEX_X87REDUCEDPRECISION");   /* ml1184 */
+        unsetenv("MADEIRA_WGI_HOST_PADS");
+        unsetenv("MADEIRA_INPUT_FOREGROUND");
         unsetenv("MADEIRA_DINPUT_PAD");        /* ml1240 */
         /* madeira-bcd: Horizon Zero Dawn's per-game switches must not reach a later game
          * of this app run (GTA V Enhanced runs without them). */

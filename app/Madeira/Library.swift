@@ -93,12 +93,19 @@ enum BuildStamp {
 final class LibraryController: ObservableObject, @unchecked Sendable {
     static let shared = LibraryController()
     @Published var connected = false
+    @Published var name = "Controller"
+    @MainActor func setConnection(name: String?, connected: Bool) {
+        if self.connected != connected { self.connected = connected }
+        let title = name ?? "Controller"
+        if self.name != title { self.name = title }
+    }
     let commands = PassthroughSubject<String, Never>()
     private let lock = NSLock()
     private var enabled = false
     private var owns = false
     private var last: UInt16 = 0
-    private var announced = false
+    private var nextRepeat = 0.0
+    private var lastDirection: UInt16 = 0
     private let allowed = MadeiraConfig.flag("MADEIRA_FRONTEND_CONTROLLER")
     var ownsInput: Bool { lock.lock(); defer { lock.unlock() }; return enabled && owns }
     func configure(enabled: Bool, ownsInput: Bool) {
@@ -114,18 +121,29 @@ final class LibraryController: ObservableObject, @unchecked Sendable {
             if ly > 16000 { buttons |= 1 }; if ly < -16000 { buttons |= 2 }
         }
         let pressed = buttons & ~last; last = buttons
-        let own = owns, announce = !announced; announced = true
+        let own = owns
+        let direction = buttons & 15
+        let now = ProcessInfo.processInfo.systemUptime
+        var repeated: UInt16 = 0
+        if !own || direction == 0 { nextRepeat = 0; lastDirection = 0 }
+        else if direction != lastDirection {
+            lastDirection = direction; nextRepeat = now + 0.4
+        } else if now >= nextRepeat {
+            repeated = direction; nextRepeat = now + 0.12
+        }
         lock.unlock()
-        if announce { DispatchQueue.main.async { self.connected = true; fputs("[frontend-controller] navigation active\n", stderr) } }
         var command: String?
         // Reserve the Back+Start chord in gameplay, leaving ordinary Start intact.
-        if !own, buttons & 0x30 == 0x30, pressed & 0x30 != 0 { command = "menu" }
+        if !own, (buttons & 0x30 == 0x30 && pressed & 0x30 != 0) || pressed & 0x400 != 0 { command = "menu" }
         if own {
             for (mask, name): (UInt16, String) in [(1, "up"), (2, "down"), (4, "left"), (8, "right"), (0x1000, "accept"), (0x2000, "back"), (0x8000, "add"), (0x10, "menu"), (0x100, "tab"), (0x200, "tab")] {
-                if pressed & mask != 0 { command = name; break }
+                if (pressed | repeated) & mask != 0 { command = name; break }
             }
         }
-        if let command { DispatchQueue.main.async { self.commands.send(command) } }
+        if let command { DispatchQueue.main.async {
+            LogStore.shared.log("[frontend-controller] command=\(command)")
+            self.commands.send(command)
+        } }
     }
 }
 
@@ -245,6 +263,8 @@ struct LibraryEntry: Codable, Identifiable {
     /// Processors reported to Windows code in this game's sessions
     /// (MADEIRA_CPU_COUNT, ntdll); nil = automatic.
     var cpuCount: Int?
+    /// Keep a phone's game session in landscape; the library remains rotatable.
+    var landscapeOnly: Bool?
     /// D3D9 anisotropic filtering limit (DXMT_D9_ANISO_LIMIT: 1, 2, 4 or 8);
     /// nil = the application's own choice.
     var anisotropyLimit: Int?
@@ -519,6 +539,15 @@ struct LibraryEntry: Codable, Identifiable {
         // own value still applies to the other choices.
         if GamepadInput.keyboardMouseAvailable, controllerMode == "dinput" { setenv("MADEIRA_DINPUT_PAD", "1", 1) }
         else if MadeiraConfig.get("env.MADEIRA_DINPUT_PAD") == nil { unsetenv("MADEIRA_DINPUT_PAD") }
+        // Unity's newer Windows input backend can enumerate WGI without ever
+        // loading XInput. Offer the same host snapshot through that API as well.
+        if GamepadInput.keyboardMouseAvailable, controllerMode == "wgi" {
+            setenv("MADEIRA_WGI_HOST_PADS", "1", 1)
+            setenv("MADEIRA_INPUT_FOREGROUND", "1", 1)
+        } else {
+            if MadeiraConfig.get("env.MADEIRA_WGI_HOST_PADS") == nil { unsetenv("MADEIRA_WGI_HOST_PADS") }
+            if MadeiraConfig.get("env.MADEIRA_INPUT_FOREGROUND") == nil { unsetenv("MADEIRA_INPUT_FOREGROUND") }
+        }
         if let anisotropyLimit, [1, 2, 4, 8].contains(anisotropyLimit) { setenv("DXMT_D9_ANISO_LIMIT", String(anisotropyLimit), 1) }
         else { unsetenv("DXMT_D9_ANISO_LIMIT") }
         // Set or unset, so a previous session's choice never stays.
@@ -691,6 +720,86 @@ final class LibraryModel: ObservableObject {
         }
         resetPhoneResolution()
         applyRecommendations()
+        applyRatatanDisplayRepair()
+        applyRatatanControllerRepair()
+        applyRatatanPoolRepair()
+    }
+
+    /// The device's main stack split the executable band: 560 MB filled before
+    /// CRI audio loaded. Use the existing two-region allocator for this game.
+    private func applyRatatanPoolRepair() {
+        let key = "madeira.local.ratatan-pool-repair.v1"
+        guard !readOnly, !UserDefaults.standard.bool(forKey: key),
+              let entry = entries.first(where: { $0.steamAppID == 2949320 }) else { return }
+        let profile = GameProfile(windowsPath: entry.windowsPath)
+        guard let url = profile.url else { return }
+        do {
+            let fm = FileManager.default
+            try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let backup = url.appendingPathExtension("pre-pool-repair")
+            if fm.fileExists(atPath: url.path), !fm.fileExists(atPath: backup.path) { try fm.copyItem(at: url, to: backup) }
+            var lines = profile.text.components(separatedBy: .newlines).filter {
+                $0.split(separator: "=", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces) != "pool-split"
+            }
+            lines.append("pool-split = 1")
+            try (lines.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
+            UserDefaults.standard.set(true, forKey: key)
+            LogStore.shared.log("[pool-repair] enabled split JIT pool for Ratatan after 560 MB exhaustion")
+        } catch { LogStore.shared.log("[pool-repair] config preserved: \(error.localizedDescription)") }
+    }
+
+    /// Device log: this game enumerates Windows.Gaming.Input rather than XInput.
+    /// Keep the choice per game: titles reading both APIs may otherwise see two pads.
+    private func applyRatatanControllerRepair() {
+        let key = "madeira.local.ratatan-controller-repair.v1"
+        guard !readOnly, !UserDefaults.standard.bool(forKey: key),
+              let index = entries.firstIndex(where: { $0.steamAppID == 2949320 }) else { return }
+        do {
+            let backup = file.appendingPathExtension("pre-controller-repair")
+            if !FileManager.default.fileExists(atPath: backup.path) {
+                try FileManager.default.copyItem(at: file, to: backup)
+            }
+            var next = entries
+            next[index].controllerMode = "wgi"
+            guard persist(next) else { return }
+            UserDefaults.standard.set(true, forKey: key)
+            LogStore.shared.log("[controller-repair] enabled Windows.Gaming.Input for Ratatan")
+        } catch { LogStore.shared.log("[controller-repair] library preserved: \(error.localizedDescription)") }
+    }
+
+    /// One-time local migration for the existing installation. Keep backups of
+    /// both files, and leave later changes made in Game details alone.
+    private func applyRatatanDisplayRepair() {
+        let key = "madeira.local.ratatan-display-repair.v1"
+        guard !readOnly, !UserDefaults.standard.bool(forKey: key),
+              let index = entries.firstIndex(where: { $0.steamAppID == 2949320 }) else { return }
+        let profile = GameProfile(windowsPath: entries[index].windowsPath)
+        guard let configURL = profile.url else { return }
+        let fm = FileManager.default
+        do {
+            let libraryBackup = file.appendingPathExtension("pre-display-repair")
+            if !fm.fileExists(atPath: libraryBackup.path) { try fm.copyItem(at: file, to: libraryBackup) }
+            let configBackup = configURL.appendingPathExtension("pre-display-repair")
+            if fm.fileExists(atPath: configURL.path), !fm.fileExists(atPath: configBackup.path) {
+                try fm.copyItem(at: configURL, to: configBackup)
+            }
+            let size = entries[index].resolution.split(separator: "x").compactMap { Int($0) }
+            guard size.count == 2, size[0] > 0, size[1] > 0 else { return }
+            let flags = "game.exe -screen-fullscreen 1 -window-mode borderless -popupwindow -screen-width \(size[0]) -screen-height \(size[1])"
+            var lines = profile.text.components(separatedBy: .newlines).filter {
+                $0.split(separator: "=", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces) != "env.MADEIRA_CHILD_ARGS"
+            }
+            lines.append("env.MADEIRA_CHILD_ARGS = " + flags)
+            try (lines.joined(separator: "\n") + "\n").write(to: configURL, atomically: true, encoding: .utf8)
+            var next = entries
+            next[index].landscapeOnly = true
+            next[index].display = DisplayMode.fit.rawValue
+            guard persist(next) else { return }
+            UserDefaults.standard.set(true, forKey: key)
+            LogStore.shared.log("[display-repair] fullscreen profile and landscape lock applied")
+        } catch {
+            LogStore.shared.log("[display-repair] settings preserved; migration failed: \(error.localizedDescription)")
+        }
     }
 
     /// madeira-bcd: games already in the library get Madeira's recommended settings
@@ -771,6 +880,8 @@ final class LibraryModel: ObservableObject {
             return entry
         }
         var entry = LibraryEntry(title: title ?? game.name, relativePath: folder, bits: 0)
+        // Stable focus/scroll identity before the first time this game is saved.
+        entry.id = UUID(uuidString: String(format: "53544541-4D00-4000-8000-%012llX", UInt64(game.id)))!
         entry.steamAppID = game.id
         entry.folderBytes = SteamInstallFiles.sizeOnDisk(appID: game.id, steamApps: Self.drive.appendingPathComponent(game.library, isDirectory: true))
         return entry
@@ -1022,6 +1133,7 @@ final class LibraryModel: ObservableObject {
         launching = true; overlayFields = entry.overlayFields ?? ["FPS", "Frame time", "RAM", "Battery"]
         displayMode = entry.displayMode
         activeEntry = entry; current = entry.id; menu = false; performance = entry.performance; liveLogs = entry.liveLogs
+        GameSessionOrientation.setLandscapeLocked(entry.landscapeOnly == true)
         LogStore.shared.setDisplayActive(entry.liveLogs)
         fpsMode = entry.fpsMode; sessionMessage = "Starting…"
         opacity = min(max(entry.controlOpacity ?? 0.7, 0.15), 1)
@@ -1179,6 +1291,7 @@ final class LibraryModel: ObservableObject {
         controls.controls = savedControls; controls.visible = savedVisible; controls.sizeScale = savedSize
         if ControlPresetsModel.enabled { controls.layoutID = savedLayout }
         current = nil; activeEntry = nil; menu = false; sessionMessage = ""
+        GameSessionOrientation.setLandscapeLocked(false)
         displayMode = .fit
         LogStore.shared.setDisplayActive(true)
         launching = false; launchLogs = false; LibraryKeyboard.hide()
@@ -2463,11 +2576,27 @@ struct LibraryView: View {
     /// and sorting go game by game, so their order among the Steam games is the
     /// order without them.
     private var focusOrder: [LibraryEntry] {
-        guard group != "platform" else { return entries }
+        let steamItems = SteamGamesRules.items(installed: steamGames.games,
+            owned: SteamOwnedLibrary.enabled ? steamLibrary.owned : [], search: search)
+        let groups = SteamGamesRules.groups(steamItems, downloading: Set(steamLibrary.downloads.keys))
+        var recorded: [Int: SteamGamesRules.Recorded] = [:]
+        for (position, entry) in model.entries.enumerated() {
+            if let id = entry.steamAppID {
+                recorded[id] = SteamGamesRules.Recorded(lastPlayed: entry.lastPlayed, bytes: entry.folderBytes, position: position)
+            }
+        }
+        let steamEntries = SteamGamesRules.sorted(groups.installed, by: sort, recorded: recorded).compactMap { item in
+            item.installed.map { model.steamEntry($0, title: item.name) }
+        }
+        guard group != "platform" else {
+            let hidden = UserDefaults.standard.bool(forKey: "madeiraLibraryHideInstalled") && SteamGamesSection.collapsible
+            return (hidden ? [] : steamEntries) + (hideOthers && SteamGamesSection.collapsible ? [] : entries)
+        }
         // A library file edited by hand (or written by a fork) may repeat an id: keep the first.
         let positions = Dictionary(model.entries.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let byID = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let games = entries.map { LibraryGrouping.Game(entry: $0, position: positions[$0.id] ?? 0) }
+        let allEntries = steamEntries + entries
+        let byID = Dictionary(allEntries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let games = allEntries.map { LibraryGrouping.Game(entry: $0, position: positions[$0.id] ?? 0) }
         let collapsed = SteamGamesSection.collapsible ? LibraryGrouping.collapsed(collapsedGroups) : []
         return LibraryGrouping.groups(games, by: group, sort: sort)
             .filter { !collapsed.contains(group + "." + $0.id) }
@@ -2501,6 +2630,12 @@ struct LibraryView: View {
         // The trailing glass group changes with the tab (switchTab animates it),
         // which iOS 26 draws as a Liquid Glass morph between the two.
         .navigationTitle("")
+        .safeAreaInset(edge: .bottom) {
+            if controller.connected {
+                Label("\(controller.name) · A Select · B Back · LB/RB Tabs", systemImage: "gamecontroller.fill")
+                    .font(.caption).padding(8).frame(maxWidth: .infinity).background(.ultraThinMaterial)
+            }
+        }
         .toolbar {
             LibraryLargeTitle()
             if tab == 0 { libraryToolbar } else { settingsToolbar }
@@ -2708,7 +2843,7 @@ struct LibraryView: View {
                 let steamFirst = MadeiraDock.enabled && SteamGamesSection.hasInstalled
                 if steamFirst {
                     SteamGamesSection(search: search, layout: layout, sort: sort, width: viewport.size.width,
-                                      part: .installed, open: { selected = $0 })
+                                      part: .installed, focused: controller.connected ? focused : nil, open: { selected = $0 })
                 }
                 if SteamGamesSection.shown {
                     VStack(alignment: .leading, spacing: 14) {
@@ -2728,7 +2863,7 @@ struct LibraryView: View {
                     }
                     if MadeiraDock.enabled {
                         SteamGamesSection(search: search, layout: layout, sort: sort, width: viewport.size.width,
-                                          part: steamFirst ? .notInstalled : .all, open: { selected = $0 })
+                                          part: steamFirst ? .notInstalled : .all, focused: controller.connected ? focused : nil, open: { selected = $0 })
                     }
                 } else if model.entries.filter({ $0.desktop != true && $0.steamAppID == nil }).isEmpty {
                     ContentUnavailableView("Make yourself at home", systemImage: "gamecontroller", description: Text("Copy a game's folder into Madeira › wine › drive_c with the Files app, then tap + and choose its .exe."))
@@ -3053,6 +3188,9 @@ struct LibraryDetail: View {
                     Picker("Aspect & scaling", selection: Binding(get: { entry.displayMode.rawValue }, set: { entry.display = $0 })) {
                         ForEach(DisplayMode.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
                     }
+                    if UIDevice.current.userInterfaceIdiom == .phone {
+                        Toggle("Lock landscape during play", isOn: Binding(get: { entry.landscapeOnly == true }, set: { entry.landscapeOnly = $0 ? true : nil }))
+                    }
                     // Every setting here is the Desktop's too: its programs present through
                     // the same path, and its launch applies them like a game's
                     // (applyEnvironment, gameConfigText). check-frontend holds the parity.
@@ -3177,6 +3315,7 @@ struct LibraryDetail: View {
                     }
                     Text("Arrange buttons and choose XInput, mouse, or keyboard actions from the in-game menu.").font(.caption).foregroundStyle(.secondary)
                     if GamepadInput.keyboardMouseAvailable {
+                        Text("XInput and Windows.Gaming.Input: exposes the connected controller to games using the newer Windows controller API. Applies to the next launch.").font(.caption).foregroundStyle(.secondary)
                         Text("XInput and DirectInput: for games older than XInput, which read the pad through DirectInput. The same pad is offered through both APIs, so a game that reads both may list two controllers. Applies to the next launch.").font(.caption).foregroundStyle(.secondary)
                         Text("Keyboard and mouse: for games without controller support. The controller presses keys and moves the mouse (left stick WASD, right stick mouse, triggers click, D-pad arrows, Start Esc, Select Tab) and the game sees no controller. Change what each button does under Controller binds, here or in the in-game menu.").font(.caption).foregroundStyle(.secondary)
                     }
@@ -3569,6 +3708,7 @@ struct ControllerModeChoice: View {
         LabeledContent("Controller") {
             Picker("Controller", selection: Binding(get: { mode ?? "" }, set: { mode = $0.isEmpty ? nil : $0 })) {
                 Text("Game's own support").tag("")
+                Text("XInput and Windows.Gaming.Input").tag("wgi")
                 Text("XInput and DirectInput").tag("dinput")
                 Text("Keyboard and mouse").tag("keys")
             }.pickerStyle(.menu).labelsHidden()
@@ -4153,6 +4293,8 @@ struct LibraryHUD: View {
                     ControllerModeChoice(mode: Binding(get: { model.controllerMode }, set: { model.controllerMode = $0; model.saveCurrentProfile() }))
                     if model.controllerMode == "keys" {
                         Button("Controller binds", systemImage: "gamecontroller") { bindsPage = true }
+                    } else if model.controllerMode == "wgi" {
+                        Text("Windows.Gaming.Input applies to the next launch.").font(.caption).foregroundStyle(.secondary)
                     } else if model.controllerMode == "dinput" {
                         // ml1240: the DirectInput device exists only from the launch on.
                         Text("XInput and DirectInput applies to the next launch.")

@@ -197,6 +197,28 @@ compile_objc "$DXMT_SRC/winemetal/unix/winemetal_unix.c" winemetal_unix
 compile_objc "$DXMT_SRC/winemetal/unix/cache.c"          cache
 
 echo "=== airconv (C++ 20, needs LLVM headers) ==="
+# Meson's airconv target generates these embedded AIR modules. A clean
+# standalone build must generate them too, before compiling their consumer.
+mkdir -p "$BUILD_DIR/shader-headers"
+for shader in air_msad air_samplepos air_tessellation; do
+    src="$DXMT_SRC/airconv/shaders/$shader.metal"
+    header="$BUILD_DIR/shader-headers/$shader.h"
+    patch_file="$BUILD_DIR/xcode27-metal-atomic.patch"
+    if [ ! -f "$header" ] || [ "$src" -nt "$header" ] || [ "$0" -nt "$header" ] || [ "$patch_file" -nt "$header" ]; then
+        # Patch a staged copy, keeping the pinned DXMT submodule unchanged.
+        if [ "$shader" = air_tessellation ]; then
+            staged="$BUILD_DIR/shader-headers/$shader.metal"
+            cp "$src" "$staged"
+            if grep -q '__metal_atomic_fetch_add_explicit' "$staged"; then
+                patch -s "$staged" < "$patch_file"
+            fi
+            src="$staged"
+        fi
+        xcrun -sdk macosx metal -std=metal3.1 --target=air64-apple-macos14.0 \
+            -o "$BUILD_DIR/shader-headers/$shader.air" -c "$src"
+        xxd -n "$shader" -i "$BUILD_DIR/shader-headers/$shader.air" "$header"
+    fi
+done
 for cpp in airconv_context.cpp air_type.cpp air_signature.cpp air_operations.cpp \
            dxbc_converter.cpp dxbc_converter_gs.cpp dxbc_converter_ts.cpp \
            dxbc_converter_basicblock.cpp dxbc_converter_cfg.cpp \

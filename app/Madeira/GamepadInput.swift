@@ -34,25 +34,18 @@ final class GamepadInput: @unchecked Sendable {
         }
     }
 
-    /// Publish player 1 before the game looks (MADEIRA_PAD_EARLY_SLOT=1; default OFF).
+    /// Publish a paired controller before the game enumerates XInput.
+    /// Touch-only reservation remains opt-in (MADEIRA_PAD_EARLY_SLOT=1).
     ///
-    /// Some input layers enumerate XInput once at startup and only rescan on a
-    /// device-arrival broadcast, which this port does not deliver. Touch slot 0
-    /// connects only once the landscape overlay shows its controller mappings,
-    /// and a paired controller may not have reported an extended profile yet,
-    /// so such a game never sees a pad. When the session will have a controller
-    /// source (touch controller mappings shown, or a controller paired), slot 0
-    /// is connected at rest from the start; live input takes it over. The
-    /// reservation lasts until the process exits (one Wine session per run),
-    /// so player 1 then shows as connected for the whole session even while no
-    /// controller is in use. That is why it is opt-in: without the switch,
-    /// slot 0 connects only when a real source appears, as before.
+    /// Some games enumerate only at startup. A physical controller connected
+    /// before Play reserves player 1 until this Wine session ends, so a delayed
+    /// accessory profile or a brief reconnect cannot hide it from enumeration.
     @MainActor func reserveSessionSlot(touchControls: Bool) {
-        guard Self.enabled, Self.optIn("MADEIRA_PAD_EARLY_SLOT") else { return }
-        let touch = touchControls && Self.touchEnabled
+        guard Self.enabled else { return }
+        let touch = touchControls && Self.touchEnabled && Self.optIn("MADEIRA_PAD_EARLY_SLOT")
         let paired = !GCController.controllers().isEmpty
         guard touch || paired else { return }
-        queue.async { [self] in touchState.reserved = true; sample() }
+        queue.sync { touchState.reserved = true; sample() }
         LogStore.shared.log("[xinput] ml1990 slot=0 reserved for the session touch=\(touch ? 1 : 0) paired=\(paired ? 1 : 0)")
     }
 
@@ -193,6 +186,7 @@ final class GamepadInput: @unchecked Sendable {
     private var profiles = [GCExtendedGamepad?](repeating: nil, count: 4)
     private var timer: DispatchSourceTimer?
     private var active = false
+    private var reportedGameInput = false
     /// ml2100: player 1 goes to the HID controller (beginPadSession); queue-owned.
     private var hidActive = false
     /// MADEIRA_HIDPAD_XINPUT=1: player 1 stays an XInput pad as well.
@@ -202,6 +196,7 @@ final class GamepadInput: @unchecked Sendable {
     private var touchState = TouchGamepadState()
     @MainActor private var observers: [NSObjectProtocol] = []
     @MainActor private var started = false
+    @MainActor private var discoveryTimer: Timer?
 
     @MainActor func start() {
         guard !started else { return }
@@ -210,7 +205,7 @@ final class GamepadInput: @unchecked Sendable {
         LogStore.shared.log("[touch-xinput] ml1930 enabled=\(Self.touchEnabled ? 1 : 0)")
         guard Self.enabled else { return }
         let center = NotificationCenter.default
-        for name in [Notification.Name.GCControllerDidConnect, .GCControllerDidDisconnect] {
+        for name in [Notification.Name.GCControllerDidConnect, .GCControllerDidDisconnect, .GCControllerDidBecomeCurrent] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshControllers() }
             })
@@ -226,6 +221,14 @@ final class GamepadInput: @unchecked Sendable {
             self?.setActive(true)
         })
         refreshControllers()
+        // Wired accessories can finish publishing their profile after the connect
+        // notification. Reconcile on foreground and while active as well.
+        discoveryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard UIApplication.shared.applicationState == .active else { return }
+                self?.refreshControllers()
+            }
+        }
         setActive(UIApplication.shared.applicationState == .active)
     }
 
@@ -235,8 +238,10 @@ final class GamepadInput: @unchecked Sendable {
         let live = GCController.controllers().compactMap { controller -> (GCController, GCExtendedGamepad)? in
             guard let profile = controller.extendedGamepad else { return nil }
             controller.handlerQueue = queue
+            profile.buttonHome?.preferredSystemGestureState = .disabled
             return (controller, profile)
         }
+        LibraryController.shared.setConnection(name: live.first?.0.vendorName, connected: !live.isEmpty)
         queue.async { [self] in
             for i in controllers.indices {
                 guard let old = controllers[i], !live.contains(where: { $0.0 === old }) else { continue }
@@ -246,7 +251,7 @@ final class GamepadInput: @unchecked Sendable {
                 // ml2106: a game's "motors off" for a pad that left is dropped (the
                 // slot reads disconnected), so the slot's motors end here.
                 winios_gamepad_set_vibration(Int32(i), 0, 0)
-                fputs("[xinput] ml1920 slot=\(i) disconnected\n", stderr)
+                LogStore.shared.log("[xinput] slot=\(i) disconnected")
             }
             for (controller, profile) in live {
                 guard !controllers.contains(where: { $0 === controller }),
@@ -261,7 +266,7 @@ final class GamepadInput: @unchecked Sendable {
                     // when a controller is disconnected or the app resigns active.
                     self?.queue.async { [weak self] in self?.sample() }
                 }
-                fputs("[xinput] ml1920 slot=\(i) connected\n", stderr)
+                LogStore.shared.log("[xinput] slot=\(i) connected vendor=\(controller.vendorName ?? "unknown") category=\(controller.productCategory)")
             }
             // ml2106: the pad in each slot is where that slot's rumble plays
             // (and slot 0's the DualSense output); unchanged slots are no-ops.
@@ -395,6 +400,14 @@ final class GamepadInput: @unchecked Sendable {
                     winios_gamepad_set_state(Int32(i), nil)
                     continue
                 }
+            }
+            if i == 0, active, pad != nil, !LibraryController.shared.ownsInput,
+               !reportedGameInput,
+               state.buttons != 0 || state.left_trigger > 25 || state.right_trigger > 25
+                || abs(Int(state.lx)) > 8000 || abs(Int(state.ly)) > 8000
+                || abs(Int(state.rx)) > 8000 || abs(Int(state.ry)) > 8000 {
+                reportedGameInput = true
+                LogStore.shared.log("[xinput] physical input published to Windows slot=0")
             }
             winios_gamepad_set_state(Int32(i), &state)
         }

@@ -420,6 +420,7 @@ struct SteamGamesSection: View {
     var sort = "played"
     var width: CGFloat = 390
     var part: Part = .all
+    var focused: UUID? = nil
     /// Opens a game's Game details page (LibraryView's details sheet).
     let open: (LibraryEntry) -> Void
     @ObservedObject private var model = SteamGamesModel.shared
@@ -570,6 +571,10 @@ struct SteamGamesSection: View {
     private func cell(_ item: SteamGamesRules.Item, list: Bool, dense: Bool) -> some View {
         Button { select(item) } label: { SteamGameCell(item: item, list: list, dense: dense) }
             .libraryCardButtonStyle(grid: !list)
+            .id(item.installed.map { library.steamEntry($0, title: item.name).id })
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(
+                item.installed.map { library.steamEntry($0, title: item.name).id == focused } == true
+                    ? Color.accentColor : .clear, lineWidth: 3))
     }
 
     /// An installed game (by Madeira's download or by Steam's client) opens its

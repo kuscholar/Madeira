@@ -19,6 +19,15 @@
  * of these files loads something else too. */
 #pragma once
 
+/* The host configure cannot link the iOS archive when probing GnuTLS.
+ * These unixlibs use the pinned static iOS build through the symbol table. */
+#ifndef HAVE_GNUTLS_CIPHER_INIT
+#define HAVE_GNUTLS_CIPHER_INIT 1
+#endif
+#ifndef SONAME_LIBGNUTLS
+#define SONAME_LIBGNUTLS "libgnutls.dylib"
+#endif
+
 extern void *ios_gnutls_dlopen(const char *name, int flags);
 extern void *ios_gnutls_dlsym(void *handle, const char *name);
 extern int   ios_gnutls_dlclose(void *handle);
