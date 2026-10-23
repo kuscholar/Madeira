@@ -128,6 +128,7 @@ final class MetalBackedView: UIView {
     // → WM_KEYDOWN/WM_CHAR). Lets the user type into Windows dialogs (e.g.
     // Run) directly instead of relying on the browse list.
     static weak var keyboardTarget: MetalBackedView?
+    private var reportedSteamTextBridge = false
     override var canBecomeFirstResponder: Bool { true }
     static func toggleKeyboard() {
         guard let v = keyboardTarget else { return }
@@ -1098,7 +1099,8 @@ struct JoystickKeyView: View {
 // the message queue's ToUnicode then produces the right WM_CHAR. Paths need
 // the full symbol set (":" "\" "-" "." "_"), so the table is comprehensive.
 extension MetalBackedView: UIKeyInput {
-    var hasText: Bool { false }
+    // Guest text is external to this view; keep backspace available in the lab.
+    var hasText: Bool { SteamUIExperiment.enabled }
 
     // US-keyboard VK + shift for a character. Returns nil for chars we can't map.
     static func vkForChar(_ ch: Character) -> (Int32, Bool)? {
@@ -1134,12 +1136,17 @@ extension MetalBackedView: UIKeyInput {
         // A hardware keyboard's presses reach Wine raw (HardwareInput); UIKit
         // also delivers them here as text, which would type every key twice.
         if HardwareInput.shared.handlesTyping { return }
+        if SteamUIExperiment.enabled && !reportedSteamTextBridge {
+            reportedSteamTextBridge = true
+            LogStore.shared.log("[steam-ui-input] focused text responder active; payload omitted")
+        }
         for ch in text {
             guard let (vk, shift) = MetalBackedView.vkForChar(ch) else { continue }
-            if shift { winios_post_key(0x10, 1) }   // VK_SHIFT down
+            let temporaryShift = shift && !HardwareInput.shared.typingShiftHeld
+            if temporaryShift { winios_post_key(0x10, 1) }   // VK_SHIFT down
             winios_post_key(vk, 1)
             winios_post_key(vk, 0)
-            if shift { winios_post_key(0x10, 0) }    // VK_SHIFT up
+            if temporaryShift { winios_post_key(0x10, 0) }    // VK_SHIFT up
         }
     }
 

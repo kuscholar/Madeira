@@ -511,3 +511,25 @@ final Mach-O for `event=admit kind=crashpad policy=experimental`, then require
 actual device logs for validation. The installed Build26 test currently lacks
 readable device results; zero-byte transfer failures are not results.
 Host regression: `python3 tests/host/check-steam-ui-crashpad.py`.
+
+
+### Build27 screen keyboard coexistence
+
+In the isolated lab, a focused Metal UIKeyInput responder now owns text even
+when Device Hub enumerates a Generic Keyboard. Raw printable hardware down
+edges are deduplicated in that mode, key-up/shortcuts remain raw, and physical
+Shift is preserved. Ordinary game routing stays unchanged. Backspace is enabled
+for text held in the guest. Only ASCII VK mapping is currently implemented.
+Validate on the real iPhone software keyboard, including insertion and deletion;
+a successful host test or Mac keyboard event alone is insufficient. Never type
+credentials for a diagnostic. Native session key-value logs are suppressed.
+
+```sh
+python3 tests/host/check-steam-ui-keyboard.py
+python3 tests/host/check-hardware-input.py
+```
+
+Rebuilding win32u requires prepared FreeType include/library resources under
+build/freetype-ios/build. A missing-library warning is not an acceptable final
+UI build; verify FreeType in the final image. Do not stage private resources or
+local symlinks into Git.

@@ -226,7 +226,8 @@ void winios_drv_post_key(unsigned short vk, unsigned int flags)
         static unsigned cnt, bad;
         if (st) bad++;
         cnt++;
-        if (cnt <= 8 || (cnt & 0xff) == 0)
+        const char *session = getenv("MADEIRA_STEAM_UI_SESSION");
+        if ((!session || strcmp(session, "1")) && (cnt <= 8 || (cnt & 0xff) == 0))
             dprintf(2, "[winios] ml647 drv_post_key #%u vk=0x%x scan=0x%x flags=0x%x "
                        "-> status=0x%x (failures=%u)\n",
                     cnt, vk, scan, flags, (unsigned)st, bad);

@@ -864,7 +864,11 @@ void winios_post_touch_up(int x, int y) {
 /* Key press bridge. vk = Windows virtual-key code, down = 1 for press,
  * 0 for release. Queued like mouse events; drained in pProcessEvents. */
 void winios_post_key(int vk, int down) {
-    fprintf(stderr, "[winios] post_key vk=0x%x down=%d\n", vk, down); fflush(stderr);
+    const char *session = getenv("MADEIRA_STEAM_UI_SESSION");
+    // Steam text may contain credentials. Never record its individual keys.
+    if (!session || strcmp(session, "1")) {
+        fprintf(stderr, "[winios] post_key vk=0x%x down=%d\n", vk, down); fflush(stderr);
+    }
     winios_q_push_ev(WINIOS_EV_KEY, vk, 0, down ? 0 : KEYEVENTF_KEYUP, 0);
 }
 
@@ -909,7 +913,10 @@ BOOL winios_pProcessEvents(DWORD mask) {
         g_input_q.tail = (g_input_q.tail + 1) % WINIOS_RING_SIZE;
         pthread_mutex_unlock(&g_input_q.lock);
 
-        fprintf(stderr, "[winios] drain type=%u x=%d y=%d flags=0x%x\n", e.type, e.x, e.y, e.flags); fflush(stderr);
+        const char *session = getenv("MADEIRA_STEAM_UI_SESSION");
+        if (e.type != WINIOS_EV_KEY || !session || strcmp(session, "1")) {
+            fprintf(stderr, "[winios] drain type=%u x=%d y=%d flags=0x%x\n", e.type, e.x, e.y, e.flags); fflush(stderr);
+        }
         if (e.type == WINIOS_EV_KEY)
             winios_drv_post_key((unsigned short)e.x, e.flags);
         else

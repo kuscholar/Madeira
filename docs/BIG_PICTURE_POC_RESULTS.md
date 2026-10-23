@@ -890,3 +890,52 @@ account persistence before a separately flagged -bigpicture experiment. Keep
 32-bit unsupported-client limits explicit; Bluetooth navigation and licensed
 game launch/return still require actual device evidence. Overall Big Picture
 PoC remains INCOMPLETE, not a final GO.
+
+
+## Build27 — iPhone software keyboard with an enumerated remote keyboard
+
+User reports the iPhone on-screen keyboard cannot type into the real Steam login.
+Source inspection found UIKeyInput insertText/deleteBackward unconditionally
+returning whenever GCKeyboard is enumerated. Actual private input inventory
+shows Device Hub's Generic Keyboard connected; no driver key events were recorded.
+The enumeration-only deduplication rule can therefore discard software text.
+
+Minimal lab-only routing fix: the focused Metal UIKeyInput responder owns text
+when SteamUIExperiment is enabled. GCKeyboard no longer duplicates printable/
+text-control key downs in that mode; releases still run and Ctrl/Alt/Win shortcuts
+keep the raw route. Shift already held physically is preserved. Lab hasText now
+keeps backspace available for externally held guest text. Ordinary game routing
+is unchanged. Individual key payload logging in the bridge, event drain, driver
+and optional hardware diagnostics is suppressed/redacted for the Steam session;
+only a categorical text-route marker is emitted.
+
+Production policy tests and existing hardware mapping/scan-code/focus regression
+suite PASS; launcher/privacy regression PASS. Native win32u build passed with
+FreeType merged. The worktree initially lacked FreeType build resources: a
+read-only temporary symlink to the prepared primary build was used for compilation
+and removed afterward; it is not a Git dependency or a change to the primary app.
+Full Build27 passed. Final Mach-O text-route marker, policy symbols and FreeType
+symbol checked; signed/installed, existing experimental configuration preserved.
+The original PID13931 was absent and a full process inventory showed no Madeira
+process before install. Explicit x86 launch succeeded. Device validation pending;
+first log-read failed CoreDevice7000/POSIX60, not a runtime failure. Private
+artifacts: .madeira-install/steam-ui-keyboard-build27/. Do not enter credentials
+for testing; use harmless text and clear it without submitting sign-in.
+
+
+Build27 device checkpoint: genuine Steam login re-rendered in the same session
+at14:47 after a slower startup; no restart was used to obtain it. Device Hub
+remote pointer actions did not summon the software keyboard, so no input success
+is claimed from those attempts. The user was asked to tap the iPhone keyboard
+physically, enter harmless test text and delete it without sign-in. Evidence
+and limitations: STEAM_UI_KEYBOARD_EVIDENCE.json. Key payloads are not published.
+
+
+Build27 input result: user explicitly reports the iPhone screen keyboard can
+now insert and delete text. This is USER-REPORTED device validation; no typed
+payload, password or screenshot of test contents was collected. Host policy/
+hardware regressions and final component checks remain PASS. Login interaction
+is now supported by the user report plus visible real Steam login/BrowserReady
+from the preceding runs; successful authentication/library/Big Picture/game
+launch remain separate uncompleted gates. Preserve the installed Build27 for
+user sign-in; no additional build is needed just to log in.

@@ -483,6 +483,21 @@ enum AutoLock {
     }
 }
 
+// Steam text-entry routing is explicit: an enumerated remote keyboard is not
+// evidence that it delivers text. The focused responder owns text in the lab.
+enum TextKeyboardRouting {
+    static func responderOwnsText(experimental: Bool, firstResponder: Bool) -> Bool {
+        experimental && firstResponder
+    }
+    static func isTextKey(_ vk: Int32) -> Bool {
+        (0x30...0x39).contains(vk) || (0x41...0x5A).contains(vk) ||
+        [0x08, 0x09, 0x0D, 0x20, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF, 0xC0, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF, 0xE2].contains(vk)
+    }
+    static func shortcutHeld(_ held: Set<Int32>) -> Bool {
+        !held.isDisjoint(with: [0x11, 0x12, 0x5B, 0x5C, 0xA2, 0xA3, 0xA4, 0xA5])
+    }
+}
+
 // MARK: - Device glue
 
 final class HardwareInput: ObservableObject {
@@ -562,7 +577,14 @@ final class HardwareInput: ObservableObject {
     /// True while a hardware keyboard delivers raw key events. The text bridge
     /// (MetalBackedView's UIKeyInput) receives the same presses from UIKit, so
     /// it stands aside while this is true instead of typing every key twice.
-    var handlesTyping: Bool { Self.enabled && keyboardConnected }
+    private var responderOwnsText: Bool {
+        TextKeyboardRouting.responderOwnsText(experimental: SteamUIExperiment.enabled,
+            firstResponder: MetalBackedView.keyboardTarget?.isFirstResponder == true)
+    }
+    var typingShiftHeld: Bool { !keys.physical.isDisjoint(with: [0x10, 0xA0, 0xA1]) }
+    var handlesTyping: Bool {
+        Self.enabled && keyboardConnected && (!responderOwnsText || TextKeyboardRouting.shortcutHeld(keys.physical))
+    }
 
     // MARK: focus (main thread)
 
@@ -929,6 +951,11 @@ final class HardwareInput: ObservableObject {
             return
         }
         refreshFocus("key")
+        // Text goes through the responder exactly once, including a software
+        // keyboard while Device Hub enumerates a Generic Keyboard. Releases
+        // still run so changing text focus cannot leave an old key held.
+        if pressed && responderOwnsText && TextKeyboardRouting.isTextKey(vk) &&
+           !TextKeyboardRouting.shortcutHeld(keys.physical) { return }
         if pressed { keys.press(vk, focused: keyboardFocused) } else { keys.release(vk) }
         if pressed, keyboardFocused, Self.pointerLockAvailable,
            HardwareKeyMap.isPointerLockChord(vk, held: keys.physical) {
@@ -1579,7 +1606,7 @@ final class HardwareInput: ObservableObject {
             motionLock.lock(); tickerArmed = false; motionLock.unlock()
             return
         }
-        let keyList = keysPosted.down.sorted().map { String(format: "%02x", $0) }.joined(separator: ",")
+        let keyList = SteamUIExperiment.enabled ? "redacted" : keysPosted.down.sorted().map { String(format: "%02x", $0) }.joined(separator: ",")
         log("keys_down=[\(keyList)] mouse_dx=\(Int(dx)) mouse_dy=\(Int(dy)) "
             + "buttons=\(gameButtons.sorted().map(\.rawValue)) wheel=\(wheelN) "
             + "lock=\(pointerLocked ? "on" : "off") path=\(mousePath.rawValue) route=\(currentRoute.rawValue) "
