@@ -928,7 +928,11 @@ static void *wine_process_thread(void *arg) {
          * restore the full trace channel set. */
         {
             const char *verbose = getenv("MADEIRA_DEBUG_VERBOSE");
-            if (verbose && *verbose && *verbose != '0') {
+            const char *steam_ui = getenv("MADEIRA_STEAM_UI_SESSION");
+            if (steam_ui && !strcmp(steam_ui, "1")) {
+                setenv("WINEDEBUG", "-all", 1); // no raw CEF command lines/credential-bearing payloads
+                LOG("[steam-ui] Wine payload-wide debug channels disabled; categorical evidence only");
+            } else if (verbose && *verbose && *verbose != '0') {
                 setenv("WINEDEBUG", "err+all,fixme+all,warn+module,warn+file,trace+process,trace+module,trace+loaddll,trace+loadorder,trace+win,trace+user32,trace+syscall,trace+file", 1);
                 LOG("WINEDEBUG = verbose (MADEIRA_DEBUG_VERBOSE set)");
             } else {
@@ -1081,14 +1085,18 @@ static void *wine_process_thread(void *arg) {
          * game's App ID and install folder in MADEIRA_STEAM_APPID / MADEIRA_STEAM_APPPATH,
          * and this launch publishes the game's own identity instead of the fixed one. Both
          * are cleared here, so no later launch inherits them. */
+        const char *steam_ui_session = getenv("MADEIRA_STEAM_UI_SESSION");
         const char *dock_session = getenv("MADEIRA_DOCK_SESSION");
         const char *direct_app = getenv("MADEIRA_STEAM_APPID");    /* set by the library for one direct Steam start (Start with: The game); not a setting */
         const char *direct_path = getenv("MADEIRA_STEAM_APPPATH"); /* that game's install folder, with MADEIRA_STEAM_APPID; not a setting */
-        if (dock_session && dock_session[0] == '1') {
+        if ((dock_session && dock_session[0] == '1') || (steam_ui_session && !strcmp(steam_ui_session, "1"))) {
             unsetenv("SteamAppPath");
             unsetenv("SteamGameId");
             unsetenv("SteamAppId");
-            dprintf(STDERR_FILENO, "[steam-env] Madeira Dock session: no fixed Steam game identity published\n");
+            if (steam_ui_session && !strcmp(steam_ui_session, "1"))
+                dprintf(STDERR_FILENO, "[steam-ui] no fixed Steam game identity published\n");
+            else
+                dprintf(STDERR_FILENO, "[steam-env] Madeira Dock session: no fixed Steam game identity published\n");
         } else if (direct_app && direct_app[0] && strlen(direct_app) <= 10 &&
             strspn(direct_app, "0123456789") == strlen(direct_app) &&
             direct_path && (direct_path[0] == 'C' || direct_path[0] == 'c') && direct_path[1] == ':' &&
@@ -1851,6 +1859,7 @@ static void *wine_process_thread(void *arg) {
         unsetenv("MADEIRA_FASTSYNC"); unsetenv("MADEIRA_FASTSYNC_SEM");
         unsetenv("MADEIRA_CPU_COUNT"); unsetenv("DXMT_D9_ANISO_LIMIT");
         unsetenv("FEX_X87REDUCEDPRECISION");   /* ml1184 */
+        unsetenv("MADEIRA_STEAM_UI_SESSION");
         unsetenv("MADEIRA_WGI_HOST_PADS");
         unsetenv("MADEIRA_INPUT_FOREGROUND");
         unsetenv("MADEIRA_DINPUT_PAD");        /* ml1240 */

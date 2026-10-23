@@ -529,9 +529,26 @@ _Thread_local WORD ios_child_main_machine;
  * nothing happening; the thread entry below names the stage in one ERR. */
 _Thread_local const char *ios_child_boot_stage = "not started";
 
+/* Opt-in experiment diagnostics: never emit image paths or command lines. */
+static void ios_steam_ui_child_event( const struct ios_child_args *args, const char *event )
+{
+    const char *enabled = getenv( "MADEIRA_STEAM_UI_SESSION" );
+    const char *name, *slash, *kind = "other";
+    if (!enabled || strcmp( enabled, "1" )) return;
+    name = args->argc > 1 ? args->argv[1] : "";
+    slash = strrchr( name, '/' ); if (slash) name = slash + 1;
+    slash = strrchr( name, '\\' ); if (slash) name = slash + 1;
+    if (!strcasecmp( name, "steam.exe" )) kind = "steam";
+    else if (!strcasecmp( name, "steamwebhelper.exe" )) kind = "cef";
+    else if (!strcasecmp( name, "services.exe" )) kind = "services";
+    dprintf( STDERR_FILENO, "[steam-ui-process] event=%s kind=%s slot=%d machine=%04x\n",
+             event, kind, args->slot, args->pe_info.machine );
+}
+
 static void *ios_child_thread_entry( void *arg )
 {
     struct ios_child_args *args = arg;
+    ios_steam_ui_child_event( args, "start" );
 
     /* An IL-only .NET image without 32BITREQUIRED runs as a native process: the
      * server and exec_wineloader both promote it, so it must not get a guest
@@ -590,6 +607,7 @@ static void *ios_child_thread_entry( void *arg )
         ios_child_boot_unlock();
     }
 
+    ios_steam_ui_child_event( args, "end" );
     dprintf(STDERR_FILENO, "[Wine child thread] thread exiting cleanly\n");
     /* the pseudo-process is over — give its guest window
      * back so the next 32-bit pseudo-process can adopt the slot (a launcher

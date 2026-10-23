@@ -1,0 +1,46 @@
+{
+  "scope": "local build and host tests only; no on-device CEF validation",
+  "date": "2026-10-22",
+  "bundle_id": "com.kuschqin.madeira.steamui",
+  "build": "9",
+  "artifacts": {
+    "host_executable": {
+      "bytes": 72552,
+      "sha256": "d23a54ca6b00b28c4ee08feabbb2f94016c114f04d91f0efc8fa83246886224d"
+    },
+    "linked_debug_dylib": {
+      "bytes": 65869904,
+      "sha256": "72b6e0a02d463ef4097387dcabb7faf3e8cbe5bbbe89d04cd01309b395449e40"
+    },
+    "rebuilt_ntdll_archive": {
+      "bytes": 2374776,
+      "sha256": "822905defa263ea5e2cce4e1f0635956fb4da5c64867441d10ee194a67331396"
+    },
+    "synthetic_amd64_pe": {
+      "bytes": 94208,
+      "sha256": "101931cb9189c09a0570efaddad36a762d25eb50ddf26a5661213480d5975b83"
+    }
+  },
+  "tests": {
+    "production_launch_and_privacy": {
+      "result": "PASS",
+      "log_sha256": "a3dc79edbe078bced184a6df6157bb6d129c5ec743c15a4b42fbe06d1bc04354"
+    },
+    "dock_contract": {
+      "result": "PASS",
+      "log_sha256": "c84d76f49f9e817e762d72e01f9cf1dc40a4f3fffacd286e0f1b9fe170f9ed1b"
+    },
+    "frontend": {
+      "result": "PASS",
+      "log_sha256": "48d22fb876f190fb26696b5bf0d00fb1289a3f9903eb24b21c1fb69375bab9ac"
+    }
+  },
+  "final_link_markers": [
+    "[steam-ui-process] event=",
+    "experiment-begin login-only",
+    "payload-wide debug channels disabled",
+    "no fixed Steam game identity published"
+  ],
+  "guest_probe_execution": "NOT RUN",
+  "signing": "Official automatic provisioning failed: No Accounts; isolated app/extension profiles missing"
+}

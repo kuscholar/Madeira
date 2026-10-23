@@ -1248,6 +1248,7 @@ struct ContentView: View {
         return false
     }
     @State private var devSheet: SettingsSheet?
+    @State private var steamUIStarting = false
     @StateObject private var logStore = LogStore.shared
     @StateObject private var jitCoordinator = JITCoordinator.shared
     @State private var jitStatus: JITStatus = .unknown
@@ -1689,6 +1690,10 @@ struct ContentView: View {
                 }
                 .buttonStyle(.borderedProminent)
 
+                if SteamUIExperiment.enabled {
+                    Button("Steam UI Experiment") { startSteamUIExperiment() }
+                        .buttonStyle(.borderedProminent).tint(.purple).disabled(steamUIStarting)
+                }
                 Button("Steam Testing") {
                     // Steam S3 first boot: virtual desktop (Steam needs a
                     // window manager) + services.exe (SCM → rpcss for Steam's
@@ -2617,7 +2622,7 @@ struct ContentView: View {
     /// Debugger stays attached during PE loading so mprotect_exec can use BRK
     /// to prepare code pages. Detach happens after Wine finishes + recovery.
     /// `profile` is a library entry whose launch profile applies to this run.
-    private func runWineFullSequence(profile: LibraryEntry? = nil) {
+    private func runWineFullSequence(profile: LibraryEntry? = nil, steamUI: Bool = false) {
         guard jit_check_debugged() else {
             logStore.log("JIT not enabled. Press 'Enable JIT' first.", level: .error)
             if profile != nil { LibraryModel.shared.launchFailed() }
@@ -2771,6 +2776,8 @@ struct ContentView: View {
             // a typo here would otherwise move the VA floor with it.
             // Madeira Dock: a Dock launch may opt in to a compact pool (only that
             // launch; off by default). madeira.cfg pool below still wins.
+            if steamUI { setenv(SteamUIExperiment.sessionKey, "1", 1) }
+            else { unsetenv(SteamUIExperiment.sessionKey) }
             let dockLaunch = MadeiraDock.takeLaunchRequest()
             // A Dock session publishes no fixed Steam game identity to its guests
             // (WineProcessBridge.m): Valve's client runs in the host and gives each
@@ -3494,6 +3501,39 @@ struct ContentView: View {
     /// start.exe. That wrapper's teardown is what killed services.exe's RPC
     /// listener in every broken run (ml579/580/584/585) and took the Start menu
     /// with it; launching directly also keeps cmd+conhost alive for the session.
+    private func startSteamUIExperiment() {
+        guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
+              wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
+            logStore.log("[steam-ui] launch refused: isolated experimental app, JIT and a fresh session are required", level: .error)
+            return
+        }
+        let prefix = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("wine")
+        let size = configuredDesktopSize(default: ResolutionChoices.defaultSize())
+        do {
+            let plan = try SteamUIExperiment.prepare(prefix: prefix, width: size.0, height: size.1,
+                flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier)
+            steamUIStarting = true
+            Task { @MainActor in
+                await SteamOwnedLibrary.shared.prepareDock() // close competing native CM connection; no token transfer
+                guard jit_check_debugged(), wine_process_is_running() == 0,
+                      wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
+                    SteamOwnedLibrary.shared.dockEnded(); steamUIStarting = false
+                    logStore.log("[steam-ui] launch held after connection handoff; restart with JIT enabled", level: .error)
+                    return
+                }
+                setenv("MADEIRA_EXE", "explorer.exe", 1)
+                setenv("MADEIRA_ARGS", plan.arguments, 1)
+                setenv("MADEIRA_DESKTOP", "1", 1)
+                setenv("MADEIRA_SCREEN_W", String(plan.width), 1)
+                setenv("MADEIRA_SCREEN_H", String(plan.height), 1)
+                setenv("MADEIRA_JITLESS", "1", 1)
+                winios_display_mode_changed(Int32(plan.width), Int32(plan.height))
+                SteamUIEvidence.shared.start(prefix: prefix)
+                runWineFullSequence(steamUI: true)
+            }
+        } catch { logStore.log("[steam-ui] " + error.localizedDescription, level: .error) }
+    }
+
     private func prepareSteamLaunch() -> Bool {
         let fm = FileManager.default
         let prefix = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
