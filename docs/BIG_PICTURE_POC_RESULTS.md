@@ -280,6 +280,28 @@ the installed Build 14/FLS gate, preserving its 305-minute schedule and target
 thread. Next: after native unlock, run the staged FLS-only diagnostic and collect
 its result file before changing the runtime. No source/build/test result changed.
 
+## Heartbeat state check: 2026-10-23 09:50 UTC
+
+Resumed at e39e42bb3cb45abe55453ed3c8f9daf5618a9fa6, matching the fork's
+remote experiment branch. Both worktrees are clean; primary/main and remote
+main remain ee9fd2f4c21229dfce31a25c211d44df267336d8. Phase 1's current
+uncompleted discriminator is still the installed Build 14 FLS probe.
+
+A single read-only device check again returned passcodeRequired=true,
+unlockedSinceBoot=true. Private evidence:
+.madeira-install/steam-ui-fls-run1/heartbeat-0950-lock.json (SHA-256
+d846bec12141d5e86463c54a5a8a91401198e6cc4fe1ac87e9bff3af7395235d) and heartbeat-0950-lock.log.
+No launch/install/signing retry was attempted. No new device result or code
+change exists; previous tests are unchanged. The probe's parent/child handshake
+and bounded waits were reviewed without altering its contract or treating that
+review as execution. No independent Windows control is available locally.
+
+The native unlock gate is unchanged and was already reported; no repeat user
+notification. The next step remains the staged FLS-only launch after native
+unlock, followed by result-file and private-log capture. Do not claim a runtime
+fix, remove the refcount check, or start another CEF retry while this test is
+unexecuted. No further build/tests warranted for this documentation-only update.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
