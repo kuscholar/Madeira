@@ -1,7 +1,7 @@
 # Steam CEF compatibility matrix
 
 Revision scope: experimental branch based on ee9fd2f, audited in
-BIG_PICTURE_ARCHITECTURE.md. Updated 2026-10-22. Historical evidence refers to
+BIG_PICTURE_ARCHITECTURE.md. Updated 2026-10-23. Historical evidence refers to
 published notes at deezhizyu/madeira 97e2ce2, not a new device run.
 
 | Area | Historical report | Current source/local evidence | Current-device status / next discriminator |
@@ -15,7 +15,7 @@ published notes at deezhizyu/madeira 97e2ce2, not a new device run.
 | CM networking | TCP connected; some TLS; WebSocket/auth failed | Existing native network stack and true Valve auth remain | CEF load failed before UI; CM/TLS/WS/auth behavior not yet evaluated |
 | Auth/licensing | Genuine client sign-in, not bypass | New route does not use Dock token transfer or fabricated game identity | Human login/Steam Guard and license validation pending |
 | Isolation | All guest children share one Mach task | New mode requires .steamui bundle suffix and flag=1; symlinked client files rejected | Separate Steam UI Lab installed; working app retained |
-| Lifecycle | Fatal helper can kill app; guest process != Mach process | Per-child categorical events added behind session flag; no retries/forced termination | Actual Build 12/13 x64 child/shared-map/exit tests PASS; basic chrome_elf import/heap/thread test PASS |
+| Lifecycle | Fatal helper can kill app; guest process != Mach process | Per-child categorical events added behind session flag; no retries/forced termination | Actual Build 12/13 x64 child/shared-map/exit tests PASS; basic chrome_elf import/heap/thread and Build 15 FLS lifetime/isolation tests PASS |
 | Rendering/UI | Login had corrupt tiles | Real UI still goes through existing GDI/DXMT/Metal; no UI replacement | Steam error dialog/desktop captured; no real CEF content |
 | Big Picture | No reliable end-to-end evidence in handoff | Deliberately absent from first login-only command | Gate until interactive login and CEF stability established |
 | Bluetooth/navigation | No applicable current test | Existing GameController/XInput input path unchanged | Backbone game success is not Bluetooth/Steam UI validation |

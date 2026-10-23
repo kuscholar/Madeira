@@ -326,6 +326,34 @@ Diagnostics; collect madeira-fls-results.txt and private device log. Do not
 instruct the user to start full Steam or the earlier three-test Runtime
 Diagnostics route for this discriminator. Working baseline remains untouched.
 
+## Experiment 7 result: Build 15 FLS test passes on device
+
+The user manually started FLS Diagnostics on installed Build 15 / source
+c11d633. The private device log identifies version 15, successful paired JIT,
+and the FLS-only launch. Result file reports thread-exit-once=PASS,
+parent_once=1 wrong_owner=0 child_exit=0 wait=0, result=PASS and fls-exit=0.
+Hashes and exact categorical output are in STEAM_UI_FLS_EVIDENCE.json; raw
+artifacts are outside Git at .madeira-install/steam-ui-fls-run2/.
+
+This rejects a simple always-repeated worker callback or basic parent/child
+FLS namespace interference in the tested configuration. It does not exclude
+CEF-specific allocator/FLS lifetime issues, callback reentrancy or another
+owner/context error. No Windows control has executed. No Wine/FEX implementation
+patch or assertion suppression is justified by this pass. No Steam login/UI
+success is claimed. Previous host regressions are unchanged; this run changed
+only recorded results/docs, with no rebuild or overlapping guest experiment.
+
+A follow-up read-only attempt to retrieve the prefix's sysx64/ntdll.dll through
+CoreDevice failed to open the path (POSIX 62). It did not produce a device PE
+hash, so source/bundle-version equivalence is not asserted. Existing loaded
+module metadata and official chrome_elf readback remain the available evidence.
+
+Next: obtain bounded allocation/release and callback ownership evidence in the
+actual CEF workload, accounting for the existing zero-refcount/free-callback
+stack, before changing lifetime behavior. Reproduce a specific suspected
+condition in an isolated PE/control when possible. Do not repeat the now-passing
+basic FLS test or the locked-device gate. main/baseline app remain untouched.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
@@ -337,16 +365,12 @@ successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
-0. After a native phone unlock, launch Build 14 with madeira-fls-diagnostics
-   and collect madeira-fls-results.txt plus device log. Do not reinstall or
-   rerun the earlier Steam path just to collect this test.
-   Investigate the actual zero-refcount/free-callback path with FLS lifetime and
-   per-pseudo-process ownership evidence. The exact atomic sequence, process
-   shared map and basic official chrome_elf import/heap/thread tests passed.
-   They do not cover the full Chromium allocator. Do not repeat blind Steam
-   restarts, add capacity without evidence or disable the assertion. Next
-   discriminators should target callback multiplicity/ownership and metadata
-   lifetime, with an isolated PE/control before runtime changes where possible.
+0. Build 15's FLS-only test is completed and passes; do not rerun it merely
+   because older sections mention locked Build 14. Investigate actual CEF
+   object allocation/release and callback ownership. Narrow atomic, process,
+   chrome_elf import/heap/thread and FLS tests pass, but none validates full
+   Chromium lifetime behavior. Preserve the refcount assertion and use bounded
+   metadata diagnostics, not credential-bearing raw payload traces.
 1. Preserve the passing Build 12/13 synthetic results and artifact hashes.
    Obtain an independent Windows control when available; do not claim it ran.
 2. Inventory a full legitimate x64 Steam/CEF set in that prefix; no login cache or

@@ -25,7 +25,7 @@
     "jit_method": "PASS",
     "frontend": "PASS"
   },
-  "device_execution": "PENDING",
+  "device_execution": "PASS on Build 15; source c11d633; user started manual FLS test",
   "limitations": "No Windows control run. A passing synthetic test cannot validate the full CEF allocator or all callback lifetimes.",
   "manual_candidate": {
     "build": "15",
@@ -36,10 +36,31 @@
       "sha256": "c60f1f6fa8808f6cd74a7da01da83b350f89c29ed38af235608d6e10863a8c50"
     },
     "final_link_marker": "FLS Diagnostics",
-    "device_execution": "PENDING user manual test",
+    "device_execution": "PASS: expected FLS assertions and exit=0 confirmed in device result file",
     "signature": "codesign --verify --deep --strict passed",
     "initial_install_attempt": "Connection interrupted (IXRemoteErrorDomain 6); actual device state being rechecked",
     "install": "PASS on single retry after initial connection interruption",
     "probe_readback": "PASS: actual device probe SHA256 matches recorded 72260078b2d188b1db78c625cf5170a72eb9466fa14f25b2bde6e9435af861b9"
-  }
+  },
+  "device_result": {
+    "result_file": {
+      "bytes": 1867,
+      "sha256": "74ef8baf275435498bcb74ed74c97b95ca23d93705a919ce020b24eac2c767b9"
+    },
+    "device_log": {
+      "bytes": 202314,
+      "sha256": "53186293cf0e715575b66a63481b5a26a43a73782e77988c24349789a0f76575"
+    },
+    "observed_output": [
+      "fls-probe thread-exit-once=PASS",
+      "fls-probe parent_once=1 wrong_owner=0 child_exit=0 wait=0",
+      "fls-probe result=PASS",
+      "fls-exit=0"
+    ],
+    "scope": "Worker teardown once, no extra call on index release, no parent/child namespace interference in this test",
+    "independent_windows_control": "NOT RUN",
+    "runtime_changes": "NONE"
+  },
+  "next_discriminator": "Trace callback/object allocation and release ownership in the real CEF workload; do not infer that all FLS or allocator paths are correct.",
+  "ntdll_followup": "CoreDevice could not read sysx64/ntdll.dll via app-container path (POSIX 62); no device ntdll hash verification claimed."
 }

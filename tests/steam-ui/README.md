@@ -246,3 +246,11 @@ The expected process boundary/callback contract comes from Microsoft's
 [FlsAlloc](https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flsalloc)
 and [FlsFree](https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flsfree)
 documentation. These are expectations, not a Windows control execution.
+
+
+Build 15 device result: thread-exit-once=PASS, parent_once=1, wrong_owner=0,
+child_exit=0, wait=0, result=PASS, fls-exit=0. The user ran the manual button;
+version and launch route are confirmed by the app log. See
+`docs/STEAM_UI_FLS_EVIDENCE.json` for artifact hashes. Do not repeat this basic
+test as if Build 14 were still awaiting unlock; investigate the real CEF
+allocation/free-callback workload next. Windows control remains unexecuted.
