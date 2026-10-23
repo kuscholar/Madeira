@@ -500,3 +500,14 @@ view and allowed the genuine Steam updater to run, whereas the initial run
 faulted in i386 gdi32 get_gdi_client_ptr. A JIT allocation failure before Wine is
 an invalid comparison, not evidence about this option. Leave the normal app
 configuration unchanged. Allow official updates and record resulting binaries.
+
+
+Build26 adds `env.MADEIRA_STEAM_UI_ALLOW_CRASHPAD = 1`, effective only together
+with the native experimental session flag. The genuine helper's exact
+`--type=crashpad-handler` command is admitted unchanged. Other --type children
+remain denied. This tests the observed crashpad_client_win.cc144 self-termination
+without suppressing Chromium checks or disabling crash reporting. Check the
+final Mach-O for `event=admit kind=crashpad policy=experimental`, then require
+actual device logs for validation. The installed Build26 test currently lacks
+readable device results; zero-byte transfer failures are not results.
+Host regression: `python3 tests/host/check-steam-ui-crashpad.py`.

@@ -76,3 +76,11 @@ and reaches a visible genuine Steam updater (download complete, installing).
 This is pre-CEF progress; BrowserReady/login and Big Picture remain unverified.
 The official updater is allowed to change binaries; re-pin them before later
 compatibility conclusions. See STEAM_UI_X86_EVIDENCE.json.
+
+
+Build26: exact genuine Crashpad child admitted only under two experimental
+flags. Actual native admission marker + GDI child views, Valve BrowserReady and
+visible real Steam login (account/password/QR) confirmed on Kusch. Login
+interaction/authentication, library, Big Picture and game/controller remain
+unverified. Private artifact hashes: STEAM_UI_X86_EVIDENCE.json. Preserve live
+session for user sign-in; never publish QR/auth data or claim full PoC success.

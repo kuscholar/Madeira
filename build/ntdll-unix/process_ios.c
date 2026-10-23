@@ -1201,6 +1201,26 @@ static int sc_switch_end( const WCHAR *cl, int cl_len, const char *sw )
     return last;
 }
 
+/* Experimental Steam CEF needs its genuine crash reporter process. Keep
+ * renderer/GPU/utility children denied; never rewrite a crashpad command line. */
+static int ios_steam_ui_crashpad_allowed( const WCHAR *cl, int len )
+{
+    const char *session = getenv("MADEIRA_STEAM_UI_SESSION");
+    const char *enabled = getenv("MADEIRA_STEAM_UI_ALLOW_CRASHPAD");
+    static const char prefix[] = "--type=", type[] = "crashpad-handler";
+    int found = 0, value = -1, k, j;
+    if (!session || strcmp(session,"1") || !enabled || strcmp(enabled,"1")) return 0;
+    for (k=0; cl && k+7<=len; k++)
+    {
+        if (k && cl[k-1]!=' ' && cl[k-1]!='\t' && cl[k-1]!='"') continue;
+        for (j=0;j<7;j++) if (cl[k+j]!=(WCHAR)prefix[j]) break;
+        if (j==7) { found++; value=k+7; }
+    }
+    if (found!=1 || value+(int)sizeof(type)-1>len) return 0;
+    for (j=0;type[j];j++) if (cl[value+j]!=(WCHAR)type[j]) return 0;
+    return value+j==len || cl[value+j]==' ' || cl[value+j]=='\t' || cl[value+j]=='"';
+}
+
 /* What kind of Social Club process `image` with command line `cl` is. */
 static int sc_helper_kind( const WCHAR *image, int image_len, const WCHAR *cl, int cl_len )
 {
@@ -1630,7 +1650,11 @@ NTSTATUS WINAPI NtCreateUserProcess( HANDLE *process_handle_ptr, HANDLE *thread_
             }
             if (j == hl) is_helper = 1;
         }
-        if (is_helper)
+        int allow_crashpad = is_helper && ios_steam_ui_crashpad_allowed(
+            params->CommandLine.Buffer, params->CommandLine.Length / sizeof(WCHAR));
+        if (allow_crashpad)
+            dprintf(2, "[steam-ui-process] event=admit kind=crashpad policy=experimental\n");
+        if (is_helper && !allow_crashpad)
         {
             const WCHAR *cl = params->CommandLine.Buffer;
             int cl_len = params->CommandLine.Length / sizeof(WCHAR);

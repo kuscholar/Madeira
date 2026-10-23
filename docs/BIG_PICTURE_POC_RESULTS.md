@@ -682,7 +682,8 @@ successful build. The three historical failure families remain untested here.
 
 0. Build 20 reserve-only contract test and Build 21 native grid are COMPLETED
    on Kusch; do not repeat them or the obsolete 4016 gate. Installed latest
-   candidate is Build 23; finish staging and collect the x86 probe result. Read native VM evidence/samples, then attribute the
+   candidate is Build 26; real x86 CEF login is rendered and BrowserReady observed.
+   Preserve the live session pending user sign-in; read the latest Build26 section. Read native VM evidence/samples, then attribute the
    four actual CEF requests and their alignment/allocator/lifetime contracts
    before changing a layout or broker. Preserve strict overlap rejection.
 1. Preserve the passing Build 12/13 synthetic results and artifact hashes.
@@ -820,3 +821,72 @@ The official updater may change client files; pin post-update hashes before
 attributing any later result to the original staged manifest. CEF/helper/login
 is still pending at this checkpoint. No runtime patch was needed for this gate:
 only existing MADEIRA_GDI_SHARED_SECTION=1 in the private experimental config.
+
+
+## Build26 — required genuine Crashpad child discriminator
+
+The valid Build25 run finished the official update and verification. Actual
+helper/libcef/chrome_elf files were read back: SHA256 values in
+STEAM_UI_X86_EVIDENCE.json match the originally verified official x86 packages.
+CEF126 logs chrome_main_delegate initialization. Then native stderr explicitly
+reports crashpad_client_win.cc144: crash server failed to launch, self-terminating;
+helper exits -36863, with the existing generic --type child refusal immediately
+before it. No BrowserReady or interactive login. WSALookupServiceBegin error8 is
+also present but does not by itself establish the exit cause.
+
+Hypothesis: the generic single-process gate incorrectly denies the genuine
+required crash reporter. Minimal parent integration patch admits only one exact
+--type=crashpad-handler argument when both MADEIRA_STEAM_UI_SESSION=1 and
+MADEIRA_STEAM_UI_ALLOW_CRASHPAD=1. It does not rewrite that child's command line;
+renderer/GPU/utility/ambiguous types retain refusal. No Chromium checks, crash
+monitoring, authentication or licensing are disabled by this change. The previous
+app command and other launch paths stay unchanged.
+
+Production gate ASan/UBSan checks cover both flags, exact/quoted type, suffixes,
+duplicate/ambiguous types and renderer/GPU/utility refusal. Existing SC CEF gate
+regression suite passed; all37 native units and full iOS Build26 passed. Final
+Mach-O contains the experimental Crashpad admission marker. Deep strict signing
+and actual device installation succeeded. Explicit x86 experiment was launched
+with GDI shared sections and strict reservations preserved. Device result pending.
+Private artifacts: steam-ui-x86-client-build26/. No FEX/submodule edits.
+
+
+Build26 device checkpoint: install succeeded, config transferred, and explicit
+x86 launch returned PID13931. Later process inventory independently confirmed
+that PID and JITHelper13933 still alive; phone lock query returned unlocked.
+Two reads of Documents/madeira-log.txt failed CoreDevice7000/POSIX60 and yielded
+zero-byte files, not runtime evidence. Do NOT infer a Crashpad PASS/failure from
+them and do NOT restart the still-live experiment merely because observation
+failed. Device Hub was attempting to connect display. During screen-session
+recovery the computer-use tool reported the Mac locked with automatic unlock
+paused due to physical input. User was asked to unlock the Mac manually. No
+lock bypass, phone reboot/unpair or new overlapping experiment was attempted.
+Resume by observing PID13931/current state and collecting its log after the
+connection is available. Stage/launch already completed; no reinstall required.
+
+
+### Build26 actual milestone: real login rendered and BrowserReady
+
+After the user manually unlocked the Mac, the SAME installed Build26 session
+was observed again without restarting it. Device Hub showed the genuine Steam
+login window with account/password fields and an official QR code. Private
+actual native log contains the exact Crashpad admission marker and GDI section
+publication. Valve's steamui_html log contains BrowserReady (2 occurrences in
+the collected log); CEF logs report chrome_main_delegate initialization. Exact
+private artifact/Mach-O hashes are recorded in STEAM_UI_X86_EVIDENCE.json.
+Prior zero-byte transfer failures were observer failures, not test failures.
+
+This establishes real CEF login rendering on this phone, a material advance over
+the previous capacity gate. It is NOT yet full Phase1 interactive login success:
+field/button interaction and authenticated account/library remain unverified.
+The user was asked to complete genuine Steam login/Steam Guard themselves,
+without sending passwords/codes. No credentials were entered by the agent.
+The live lab PID13931 is preserved pending user login; do not reinstall or
+terminate it merely to collect missing observations. No screenshot/QR, raw log,
+Valve binary or login cache is published. Ordinary game app/main remain intact.
+
+Next: once user confirms login, verify interaction, authenticated Steam UI and
+account persistence before a separately flagged -bigpicture experiment. Keep
+32-bit unsupported-client limits explicit; Bluetooth navigation and licensed
+game launch/return still require actual device evidence. Overall Big Picture
+PoC remains INCOMPLETE, not a final GO.
