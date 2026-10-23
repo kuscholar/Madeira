@@ -446,3 +446,16 @@ Build 22's canonical writable-section scanner is independently checked with
 both MADEIRA_STEAM_UI_SESSION=1 and MADEIRA_STEAM_UI_POOL_TRACE=1. It observes
 known numeric pool-base pairs; it does not alter reservation behavior. Keep
 MADEIRA_STEAM_UI_STRICT_RESERVATIONS=1 during real-client experiments.
+
+Reproduce the Build 23 i386 executable (output must not already exist):
+
+```sh
+python3 tools/build-steam-ui-x86-probe.py \
+  --toolchain /absolute/path/to/llvm-mingw \
+  --output /private/path/madeira-chrome-elf32-probe.exe
+```
+
+With llvm-mingw-20260421-ucrt-macos-universal, the script reproduced SHA256
+`0c469683f47e484c06e9f72888f99b0d61b4ea0e5389cb8cb455ceb86b1a65da`,
+identical to the staged host candidate. This establishes build reproducibility,
+not execution on the phone. No Valve DLLs are bundled by this script.

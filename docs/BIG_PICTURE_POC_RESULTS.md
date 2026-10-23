@@ -704,3 +704,17 @@ into main. Resume from these gates rather than redoing the completed audit.
 The recurring 305-minute task was updated to resume Phase 1 from this document,
 rather than restarting the completed audit. No Windows Wine executable was found
 on this Mac for the guest probe control; that execution remains pending.
+
+
+### Build 23 continuation: locked-device gate and reproducible probe
+
+A fresh continuation lock query again returned passcodeRequired=true; no device
+launch or new installation was attempted. The worktree was clean at 6c880c0.
+Added tools/build-steam-ui-x86-probe.py to make the precise i686 build command
+reusable without publishing Valve files. Running it with the pinned toolchain
+reproduced the candidate SHA256
+0c469683f47e484c06e9f72888f99b0d61b4ea0e5389cb8cb455ceb86b1a65da.
+The script verifies i386 PE output and refuses overwriting an existing result.
+Remaining discriminator is unchanged: after native unlock, finish staging the
+candidate/config and launch madeira-x86-cef-diagnostics once, then inspect its
+result and private app log. No x86 execution or interactive CEF claim.
