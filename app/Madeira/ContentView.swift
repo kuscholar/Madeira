@@ -1361,11 +1361,12 @@ struct ContentView: View {
                 DockReset.baselineProvider = { DockReset.templateRegistry { madeira_extract_prefix_tgz($0, $1) } }
                 // Explicit developer launch argument; never auto-start Steam.
                 // Reuses the normal paired JIT flow instead of requiring repeated taps.
+                let automaticFLS = ProcessInfo.processInfo.arguments.contains("madeira-fls-diagnostics")
                 if SteamUIExperiment.enabled, !automaticProbeRequested,
-                   ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
+                   automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
                     automaticProbeRequested = true
                     DispatchQueue.main.async {
-                        launchAfterJIT = { startSteamUIProbe() }
+                        launchAfterJIT = { startSteamUIProbe(fls: automaticFLS) }
                         enableJIT()
                     }
                 }
@@ -3515,7 +3516,7 @@ struct ContentView: View {
     /// start.exe. That wrapper's teardown is what killed services.exe's RPC
     /// listener in every broken run (ml579/580/584/585) and took the Start menu
     /// with it; launching directly also keeps cmd+conhost alive for the session.
-    private func startSteamUIProbe() {
+    private func startSteamUIProbe(fls: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
             logStore.log("[steam-ui-probe] launch refused: fresh isolated JIT session required", level: .error)
@@ -3523,12 +3524,12 @@ struct ContentView: View {
         }
         let prefix = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("wine")
         do {
-            let args = try SteamUIExperiment.prepareProbe(prefix: prefix, flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier)
+            let args = try SteamUIExperiment.prepareProbe(prefix: prefix, flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, fls: fls)
             steamUIStarting = true
             setenv("MADEIRA_EXE", "cmd.exe", 1)
             setenv("MADEIRA_ARGS", args, 1)
             unsetenv("MADEIRA_DESKTOP")
-            logStore.log("[steam-ui-probe] begin synthetic atomic and process tests; no Steam client")
+            logStore.log(fls ? "[steam-ui-probe] begin synthetic FLS lifetime test; no Steam client" : "[steam-ui-probe] begin synthetic atomic and process tests; no Steam client")
             runWineFullSequence(steamUI: true)
         } catch { logStore.log("[steam-ui-probe] " + error.localizedDescription, level: .error) }
     }

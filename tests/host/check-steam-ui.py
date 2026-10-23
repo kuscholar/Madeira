@@ -64,6 +64,12 @@ let probeBatch = try String(contentsOf: root.appendingPathComponent("drive_c/mad
 assert(probeBatch.contains("echo atomic-exit=%errorlevel%") && probeBatch.contains("echo process-exit=%errorlevel%"))
 assert(!probeBatch.contains("steam.exe") && !probeBatch.contains("steamwebhelper"))
 assert(probeBatch.contains("echo elf-exit=%errorlevel%"))
+try pe("steam-ui-fls-probe.exe")
+try FileManager.default.moveItem(at: client.appendingPathComponent("steam-ui-fls-probe.exe"), to: root.appendingPathComponent("drive_c/steam-ui-fls-probe.exe"))
+let flsArgs = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", fls: true)
+assert(flsArgs == "/c C:\\madeira-fls-probe.cmd")
+let flsBatch = try String(contentsOf: root.appendingPathComponent("drive_c/madeira-fls-probe.cmd"), encoding: .utf8)
+assert(flsBatch.contains("fls-exit=%errorlevel%") && !flsBatch.contains("steam.exe"))
 print("PASS: feature flag, app isolation, complete x64 client, fixed command, dimensions, sanitized milestones")
 '''
 info = plistlib.loads((root/'app/Madeira/Info.plist').read_bytes())

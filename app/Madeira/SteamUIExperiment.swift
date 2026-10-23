@@ -14,9 +14,15 @@ enum SteamUIExperiment {
         flag == "1" && bundleID?.hasSuffix(".steamui") == true
     }
     static var enabled: Bool { allowed(flag: MadeiraConfig.get(flag), bundleID: Bundle.main.bundleIdentifier) }
-    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?) throws -> String {
+    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false) throws -> String {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         let drive = prefix.appendingPathComponent("drive_c")
+        if fls {
+            guard isX64PE(drive.appendingPathComponent("steam-ui-fls-probe.exe")) else { throw Failure.incompleteProbe }
+            let batch = "@echo off\r\necho fls-diagnostic-begin > C:\\madeira-fls-results.txt\r\nC:\\steam-ui-fls-probe.exe >> C:\\madeira-fls-results.txt 2>&1\r\necho fls-exit=%errorlevel% >> C:\\madeira-fls-results.txt\r\n"
+            try batch.write(to: drive.appendingPathComponent("madeira-fls-probe.cmd"), atomically: true, encoding: .utf8)
+            return "/c C:\\madeira-fls-probe.cmd"
+        }
         guard ["steam-ui-atomic-probe.exe", "steam-ui-process-probe.exe"].allSatisfy({ isX64PE(drive.appendingPathComponent($0)) })
         else { throw Failure.incompleteProbe }
         let elfProbe = "Program Files (x86)/Steam/bin/cef/cef.win64/madeira-chrome-elf-probe.exe"

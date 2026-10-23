@@ -1,6 +1,6 @@
 # Genuine Steam UI PoC results
 
-Updated 2026-10-22. Current phase: Phase 0 complete; Phase 1 controlled launcher
+Updated 2026-10-23. Current phase: Phase 0 complete; Phase 1 controlled launcher
 implemented and exercised; first CEF load failed due to JIT pool capacity. Build 10 rejected fixed secondary preparation and later exhausted image space. Build 11 validated region C but hit a chrome_elf refcount assertion before pool exhaustion. Build 13 isolated diagnostics pass; real CEF login remains blocked. Main remains
 the playable Build 8 baseline. This document is the recurring task's resume point.
 
@@ -237,6 +237,29 @@ control was available. Device passes are real, narrow results, not a general
 emulator/allocator correctness claim. See STEAM_UI_RUN3_EVIDENCE.json for hashes
 and exact output categories. The user still has no working real Steam login UI.
 
+## Experiment 7: FLS callback lifetime and process isolation (Build 14)
+
+On 2026-10-23 the user explicitly requested direct phone operation. The existing
+paired automatic JIT route is reused; no repeated app-button interaction is
+required. A new explicit `madeira-fls-diagnostics` developer argument selects
+one FLS-only probe. It checks worker teardown once, no repeated callback on
+freeing an empty slot, and parent/child FLS namespace isolation while the child
+is alive. Static records track PID/call counts without freeing foreign memory.
+
+This discriminator tests the basic lifetime/ownership lead from the actual
+chrome_elf free-callback stack before any Wine/FEX runtime modification. The
+expectation is Microsoft's documented per-process FLS contract, not an actual
+Windows control result. Probe source and commands: tests/steam-ui/README.md.
+
+Host launch/isolation/privacy checks, JIT-method and frontend regressions pass.
+Build 14 compiled, passed strict signing verification, installed and received
+the x64 probe. The first automated launch was refused by iOS: device Locked,
+passcodeRequired=true. Device execution is PENDING; a native unlock is required.
+The user was asked only to unlock/keep the phone awake, not to operate app
+buttons. Do not count installation or the probe's compilation as a pass. Exact
+artifact hashes and current gate: STEAM_UI_FLS_EVIDENCE.json. No security setting,
+lock bypass, Wine/FEX implementation change or baseline app change occurred.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
@@ -248,7 +271,10 @@ successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
-0. Investigate the actual zero-refcount/free-callback path with FLS lifetime and
+0. After a native phone unlock, launch Build 14 with madeira-fls-diagnostics
+   and collect madeira-fls-results.txt plus device log. Do not reinstall or
+   rerun the earlier Steam path just to collect this test.
+   Investigate the actual zero-refcount/free-callback path with FLS lifetime and
    per-pseudo-process ownership evidence. The exact atomic sequence, process
    shared map and basic official chrome_elf import/heap/thread tests passed.
    They do not cover the full Chromium allocator. Do not repeat blind Steam

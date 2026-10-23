@@ -219,3 +219,28 @@ does NOT exercise all PA allocations, the exact CEF destructor order, software
 rasterization or authenticated Steam UI. A macOS x86-64 build of the atomic
 control could not execute (Bad CPU type); no Windows control was available.
 Never describe these passes as a working Steam login or general FEX correctness.
+
+
+## FLS lifetime/isolation probe (Build 14)
+
+```sh
+"$LLVM_MINGW/bin/x86_64-w64-mingw32-clang" -O2 -municode -static \
+  -Wl,--no-insert-timestamp tests/steam-ui/fls-lifetime.c \
+  -o /tmp/steam-ui-fls-probe.exe
+```
+
+Place this x64 PE at the experimental drive_c root. Start a fresh lab process
+with argument `madeira-fls-diagnostics`; the existing paired JIT coordinator
+runs the single synthetic test and writes `drive_c/madeira-fls-results.txt`.
+It never starts Steam. The normal orange diagnostic route remains unchanged.
+
+Checks: a joined worker's callback ran once; freeing its now-empty FLS index
+does not call it again; while a child holds its own FLS value, freeing the
+parent's index only calls the parent's destructor; the child's value remains
+intact and its own free calls its destructor once. Values are static records
+with expected PID and callback count, so a wrong callback cannot corrupt a
+foreign heap by freeing it. Waits are bounded; no forced child termination.
+The expected process boundary/callback contract comes from Microsoft's
+[FlsAlloc](https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flsalloc)
+and [FlsFree](https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flsfree)
+documentation. These are expectations, not a Windows control execution.
