@@ -32,3 +32,13 @@ that pointer. Synthetic FLS still PASS with observer loaded. This narrows the
 investigation to pre-callback allocation/free/corruption or translation, without
 proving any of them. See STEAM_UI_FLS_TRACE_EVIDENCE.json; interactive CEF remains
 unverified. Callback/refcount behavior was not changed.
+
+
+Builds 18/19: pre-callback PA metadata has slot_size=8192/refcount=0 for a PTD
+whose inspected CRT allocation requests 128 bytes. Native logs also prove a real
+and soft pool overlap. The feature-flagged strict overlap experiment rejects
+12 such candidates and exposes STATUS_NO_MEMORY, with a later fatal at
+libcef+0x6923404 rather than chrome_elf+0xd7e3e. This is an allocation/layout
+gate, not CEF success or proof of the sole original cause. Existing brp-contain
+text misclassifies generic fatal byte patterns; use module/RVA/context.
+See STEAM_UI_ALLOCATOR_EVIDENCE.json and Build 19 reproduction instructions.

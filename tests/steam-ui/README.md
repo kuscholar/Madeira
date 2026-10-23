@@ -309,3 +309,66 @@ It is not a Windows control. Build 16 actual device observations and hashes:
 `docs/STEAM_UI_FLS_TRACE_EVIDENCE.json`. The first failing PTD callback has no
 previous observed delivery; next investigate allocation/free history, without
 removing Chromium checks or claiming an interactive login.
+
+
+### Build 17/18 allocator metadata discriminator
+
+The optional PE observer now recognizes the exact 31-byte chrome_elf PTD
+callback at RVA 0x9c1e0 from the already-hashed official client. For its FLS set
+and callback-begin, it follows the inspected non-page-aligned free path at
++0x65836..0x658ce: 2 MiB superpage mask, metadata page/slot-span offset,
+bucket slot size, BRP-enabled root flag and the trailing 32-bit refcount.
+All reads use NtReadVirtualMemory with exact-length checks; sentinel/unaligned
+values, incompatible code fingerprints, unavailable mappings and out-of-range
+slot sizes are rejected. PTD contents are never read. This is a version-specific
+hypothesis test, not a general PartitionAlloc parser or allocator fix.
+
+Build 17 emitted FLS records but NO allocator snapshots. Its 33-second real CEF
+run did not reproduce the refcount assertion and recorded continued presents;
+these are neither metadata validation nor interactive login success.
+Build 18 adds at most 32 categorical skip records for index 2 per observer
+instance: -1 callback unreadable, -2 code mismatch, -3 superpage/span unreadable,
+-4 root flag unreadable, -5 bucket/size unavailable or invalid, -7 refcount
+unreadable; 10+flag means BRP root flag differs from 1. A zero return means a
+non-applicable event/value/page-aligned branch. Successful snapshot returns 1.
+Keep each trace bounded to 4096 FLS events (each may add one metadata record).
+Callbacks cached by index are observer metadata only; actual callback dispatch
+continues to use Wine's unchanged structures. No Valve code is patched.
+
+Host fixture tests the metadata calculation with only allowlisted synthetic
+reads, including an 8192-byte bucket, while object contents remain unreadable.
+Wrong fingerprint and partial-read cases must produce no metadata snapshot.
+Read status evidence on device before interpreting missing snapshots.
+Build 18 reuses the fully compiled Build 17 Mach-O, replaces only the diagnostic
+ARM64EC PE and CFBundleVersion, and is then re-signed; it is not a separate full
+Xcode compilation. Export/order and final bundle component hashes must be kept.
+
+### Strict soft-reservation overlap experiment (Build 19)
+
+Build 18 device evidence shows a real 16 GiB grant at 0x7800000000 followed by
+an unbacked guard-prefixed soft grant covering the SAME interval. Before the
+first failing PTD callback, the observed slot size is 8192 and refcount is zero.
+This supports testing pool aliasing; it does not establish allocator corruption
+as the sole cause. Build 17 also had overlapping grants without this assertion
+inside its shorter capture, so the crash is not deterministic from overlap alone.
+
+Opt in ONLY in the isolated lab with
+`env.MADEIRA_STEAM_UI_STRICT_RESERVATIONS = 1`. It also requires the launcher's
+MADEIRA_STEAM_UI_SESSION=1. Before an emergency soft grant, the native allocator
+checks its complete returned range (including a guard prefix) against real Wine
+views under virtual_mutex. On overlap it logs `[steam-ui-reserve]
+reject-soft-overlap` and tries another existing candidate; if none remain, it
+preserves the allocation failure. It does not add backing, remap a view, remove
+protection or change normal app behavior with the flag absent. This is a limited
+experimental check, not a complete address-space broker; it does not reserve a
+new empty soft span against future concurrent native mappings or audit every
+other fallback/cage. Do not advertise it as a generally collision-free allocator.
+
+`python3 tests/host/check-steam-ui-reservations.py` compiles the real
+find_view_range implementation and actual gated grant block with a mock view
+tree under ASan/UBSan. It exercises interior/partial/guard-prefix overlap,
+other tree branches, boundary-touch and disjoint ranges, balanced locks and
+exact dual-flag default isolation. Rebuild build/ntdll-unix/build.sh, then the
+full experimental Xcode app. Verify the reject-soft-overlap string in the FINAL
+Mach-O; overlay the unchanged diagnostic PE if desired, then re-sign/install.
+Capture real allocation failure versus refcount assertion as distinct outcomes.

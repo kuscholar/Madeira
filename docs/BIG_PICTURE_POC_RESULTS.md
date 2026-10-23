@@ -407,6 +407,78 @@ compared with the FIRST FLS callback. Preserve the assertion; do not repeat the
 basic FLS probe without a new instrumentation change. Reproduction is documented
 in tests/steam-ui/README.md. main and the installed working game app are preserved.
 
+
+## Builds 17–19: allocator metadata and overlapping pool grants (2026-10-23)
+
+Phase 1, parent a10687c64f525b4aadfa99faad7403167ad525c1. Submodule pins
+are unchanged. Observed failure/hypothesis: an official CRT path requests a
+128-byte PTD, but the previous fatal site's preserved metadata-register points
+to PTD+8192-4. Test whether allocator metadata is already inconsistent before
+its FIRST FLS callback, rather than suppressing that callback or its assertion.
+
+Build 17 adds fault-reporting, exact-length metadata reads to the separate Wine
+PE observer. Exact 31-byte callback fingerprint pins interpretation to the
+inspected official chrome_elf. No PTD contents are read. Its 33-second real CEF
+run has no refcount assertion, and presents continue through #1219. However,
+there are NO metadata snapshots, no BrowserReady and no interaction artifact;
+this is not a fix/login success. Its PE SHA256 is
+a94a82c58591e8a81d3f40a043a764c77b140790de8ed7228f8e2dcbedc6faa5.
+The first sandboxed Xcode attempt could not query Metal; the normal authorized
+Xcode toolchain build succeeded. JIT/frontend/policy and observer host tests pass.
+
+Build 18 reuses Build 17's compiled Mach-O and changes only the diagnostic PE
+and version, then re-signs/installs. It adds bounded categorical read exclusions.
+At tid012c's callback begin, actual metadata reports slot_size=8192,
+ref=0x78002821fc and ref_value=0 for PTD 0x7800280200; the original
+chrome_elf+0xd7e3e assertion then occurs. Initial metadata for THIS object is
+not recorded, so no claim that its state was correct at allocation is supported.
+Some nearby callbacks report BRP root flag 0. Trace gaps/initial missing records
+also limit chronology. No allocation/free history or Windows control exists.
+
+More direct evidence: the native log first grants a REAL 16 GiB pool at
+0x7800000000, then grants an unbacked soft guard-prefixed range returned at
+0x77ffff0000, size 0x400010000, covering the same pool. Source inspection finds
+that the emergency soft-grant path only excludes prior SOFT entries/furniture;
+the comment claiming a real-pool probe remains, but its probe was removed.
+Thus two allocator requests can own overlapping intervals. This supports a
+specific aliasing hypothesis; Build 17 also had duplicate grants without the
+same assertion inside its capture, so overlap alone is not a deterministic
+proof of that crash's sole cause.
+
+Minimal experimental patch: dual-gated by MADEIRA_STEAM_UI_SESSION=1 and
+MADEIRA_STEAM_UI_STRICT_RESERVATIONS=1, inspect the whole returned soft range
+against current Wine views under virtual_mutex; reject intersecting candidates
+and retain allocation failure if no candidate remains. No remap, extra backing,
+protection workaround or Chromium change. Default gaming path is unchanged.
+This check is not a complete broker for native/soft/cage future allocations.
+
+Build 19: all 37 native units and full Xcode build pass. The final Mach-O contains
+the reject-soft-overlap marker; the unchanged Build 18 diagnostic PE is staged
+ONLY into the generated app, which passes strict signing and device install.
+The real-device ~57.79-second trace records 12 rejected overlaps, zero soft pool
+grants, and STATUS_NO_MEMORY for 16 GiB/~32 GiB fallback reservations. CEF now
+fails at libcef.dll+0x6923404 after allocation failure, before interactive login.
+The earlier chrome_elf+0xd7e3e site is not observed. The existing [brp-contain]
+message also labels this unrelated fatal pattern as a refcount assertion:
+its generic CC CC 0F 0B matcher is NOT a reliable classifier. Module/RVA and
+context distinguish these failures. Pool/JIT layout also varies between runs;
+this result exposes the capacity gate, not a proven final repair.
+
+Regression: actual overlap lookup/grant code exercised with partial/interior,
+guard-prefix, boundary/disjoint, tree-branch, exact dual-flag and balanced-lock
+tests under ASan/UBSan; PASS. Observer fingerprint/partial-read/privacy tests
+PASS. Policy/JIT/frontend checks PASS. No FEX or original Wine checkout edits.
+Private raw artifacts: .madeira-install/steam-ui-pa-build17,
+steam-ui-pa-build18 and steam-ui-reserve-build19. Redacted evidence and hashes:
+docs/STEAM_UI_ALLOCATOR_EVIDENCE.json. A first stable-log download after SIGTERM
+closed its socket; one retry succeeded. Only lab processes were terminated;
+working main at ee9fd2f and playable app/data are preserved.
+
+Next: inventory actual real/soft/cage interval ownership, reproduce the overlap
+contract in an isolated reservation test, and determine a disjoint backed layout
+before any new broker patch. Do not restore silent aliasing to make initialization
+appear successful. No interactive login/Big Picture milestone is achieved.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build

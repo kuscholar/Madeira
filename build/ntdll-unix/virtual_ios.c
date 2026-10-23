@@ -28130,6 +28130,36 @@ NTSTATUS WINAPI NtAllocateVirtualMemory( HANDLE process, PVOID *ret, ULONG_PTR z
                         if (slot < ios_furniture_ceiling
                             && slot + (uint64_t)*size_ptr > 0x7038000000ULL)
                             continue;
+                        /* Isolated Steam UI experiment: a soft grant must not
+                         * alias a real Wine view. Inspect the WHOLE returned
+                         * range, including a guard prefix, under virtual_mutex.
+                         * Return the existing allocation failure if no slot is
+                         * available; never disguise overlap as extra capacity. */
+                        {
+                            const char *ui = getenv( "MADEIRA_STEAM_UI_SESSION" );
+                            const char *strict = getenv( "MADEIRA_STEAM_UI_STRICT_RESERVATIONS" );
+                            if (ui && ui[0] == '1' && !ui[1] && strict && strict[0] == '1' && !strict[1])
+                            {
+                                void *candidate = (void *)(uintptr_t)(off ? slot + off - align_unit : slot);
+                                struct file_view *blocker;
+                                void *blocked_base = NULL;
+                                SIZE_T blocked_size = 0;
+                                sigset_t sigset;
+                                server_enter_uninterrupted_section( &virtual_mutex, &sigset );
+                                if ((blocker = find_view_range( candidate, *size_ptr )))
+                                {
+                                    blocked_base = blocker->base;
+                                    blocked_size = blocker->size;
+                                }
+                                server_leave_uninterrupted_section( &virtual_mutex, &sigset );
+                                if (blocked_size)
+                                {
+                                    dprintf(2, "[steam-ui-reserve] reject-soft-overlap candidate=%p size=0x%lx view=%p view_size=0x%lx\n",
+                                            candidate,(unsigned long)*size_ptr,blocked_base,(unsigned long)blocked_size);
+                                    continue;
+                                }
+                            }
+                        }
                         /* skip a slot that already holds a REAL pool: a 64KB
                          * probe reserve at its base would succeed only if free */
                         probe_addr = NULL; probe_sz = 0;
