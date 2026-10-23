@@ -1,7 +1,7 @@
 # Genuine Steam UI PoC results
 
 Updated 2026-10-22. Current phase: Phase 0 complete; Phase 1 controlled launcher
-implemented, signed, installed and started; CEF execution validation pending. Main remains
+implemented and exercised; first CEF load failed due to JIT pool capacity. Build 10 tests a placement correction, pending device execution. Main remains
 the playable Build 8 baseline. This document is the recurring task's resume point.
 
 ## What has actually been established
@@ -95,6 +95,48 @@ lines. Human Steam Guard completion is required if Valve requests it. No claimed
 networking, pixel, controller, login, Big Picture, library, persistence or
 game-return validation yet. The synthetic PE is staged but NOT executed.
 
+## Experiment 2: first real-client device run and allocation failure
+
+Build 9 / source 4293afb ran the controlled Steam UI route on Kusch. The user
+captured Steam's real "steamwebhelper is not responding" dialog. The private
+host log confirms the route and repeated helper creation/termination. This is
+NOT an interactive CEF/login success. No libcef fault RVA or KERN_MEMORY_ERROR
+was observed in this run: CEF's code image failed to load before initialization.
+
+Observed failure: primary JIT pool shrank from the requested 896 MiB to 464 MiB.
+The upper run existed (325 MiB), but the second debugger allocation returned a
+lower address and was released by the existing placement guard. At first CEF
+failure the image allocator requested 0xd3d0000 bytes (about 212 MiB), while
+main virgin space was 0x8134000 (about 129 MiB), with only small reusable ranges.
+The loader returned STATUS_NO_MEMORY. Steam's own subsequent retries did not
+change this. cef_log.txt was empty. Raw logs remain outside Git; hashes and
+categorical findings are in STEAM_UI_RUN1_EVIDENCE.json.
+
+Hypothesis: precise reservation of the measured upper run, followed by the
+existing debugger's supported non-null-address prepare operation, will retain
+the second region instead of relying on first-fit allocation and temporary
+plugs. This addresses capacity/placement, not CEF memory-protection faults.
+
+Discriminating test: on Build 10 require an exact-secondary RX verification
+line and retained split-pool capacity; check whether libcef's image loads rather
+than failing STATUS_NO_MEMORY. If it still fails, retain the new evidence and
+do not treat a dialog/restart as progress. No protection overrides or retries
+were added. A failed exact reservation, mismatched response or non-RX mapping
+is released and rejected; occupied mappings are never overwritten.
+
+Minimal patch: only SteamUIExperiment.enabled selects the exact secondary
+reservation in StikJITHelper; the normal game allocation path is unchanged.
+The entire returned region is queried for actual READ+EXECUTE permission before
+acceptance. Local tests exercise real host Mach VM with a mock debugger:
+occupied mappings retain their bytes and invoke no debugger; null/mismatched/
+non-RX preparations release their allocations; a complete RX preparation passes.
+These tests do not prove iOS debugserver will prepare caller-reserved memory.
+Pool split/placement tests, JIT integration and Steam UI policy checks pass.
+Build 10 compiled, was signed/verified, installed and launched. Its final linked
+Mach-O contains the new diagnostic. Device execution of this candidate is
+pending; the user has been asked to repeat Enable JIT and Steam UI Experiment.
+The original working app/main remain unchanged.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
@@ -106,6 +148,9 @@ successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
+0. Collect Build 10 exact-secondary preparation and libcef load results first.
+   Build 9 established an executable-image capacity failure, not one of the
+   historical CEF crash/render/network families. Do not blindly restart Steam.
 1. With the isolated app now provisioned and installed, run the synthetic PE in the
    separate app/prefix and record child exit plus shared-match, with Windows
    control if available. Record exact installed Mach-O hashes.

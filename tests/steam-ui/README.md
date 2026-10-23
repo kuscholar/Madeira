@@ -146,3 +146,20 @@ suppresses command-tail echoes. Raw Steam logs must stay app-private. The
 categorical observer can miss initialization messages at this severity; missing
 markers remain inconclusive. Interactive pixels and device crash evidence are
 still required before declaring the login milestone.
+
+
+## Exact secondary-region experiment (Build 10)
+
+```sh
+python3 tests/host/check-steam-ui-pool.py
+python3 tests/host/check-pool-split.py
+python3 tests/host/check-pool-placement.py
+```
+
+The first compiles the production Swift helper against host Mach VM with a
+mocked debugger; it checks occupied memory, failed/mismatched/non-RX preparation
+and successful RX acceptance. It does not execute iOS JIT. Only the experimental
+Steam UI mode uses this helper. Record `[steam-ui-pool] exact secondary RX
+verified` and actual split-pool sizes, then libcef image-load success/failure
+from the next device run. Compare against the evidence in
+`docs/STEAM_UI_RUN1_EVIDENCE.json`; do not infer success from the Build 10 install.
