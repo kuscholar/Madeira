@@ -425,3 +425,24 @@ Build 21 actual Kusch result: 8 successes at four high-band bases (both sizes),
 54 failures kr3, no cleanup failures; see numeric CSV and hashed evidence in
 docs/STEAM_UI_NATIVE_VM_EVIDENCE.json. Do not repeat this grid or unmap the
 pre-existing lower regions; next attribute CEF's exact pool requests/contracts.
+
+
+### Build 23: genuine i386 chrome_elf probe
+
+This is a loader/heap/thread discriminator, not interactive CEF validation.
+Compile the unchanged chrome-elf-heap.c with i686-w64-mingw32-clang and an import
+library generated from chrome-elf.def using i686-w64-mingw32-dlltool. Use the
+manifest-verified official win32 CEF package; do not copy authentication caches.
+Stage the probe as madeira-chrome-elf32-probe.exe alongside chrome_elf.dll and
+libcef.dll under the isolated prefix's drive_c/Steam32Probe/bin/cef/cef.win7/.
+All three must be i386 PE files. In the .steamui app with the experimental flag,
+launch with madeira-x86-cef-diagnostics through the paired automatic JIT flow.
+Collect drive_c/madeira-x86-cef-results.txt and the private lab log. A zero exit
+only validates this narrow probe. The frozen 32-bit Steam client is unsupported
+by Valve since January 2026; full startup/server compatibility is unverified.
+
+Build 22's canonical writable-section scanner is independently checked with
+`python3 tests/host/check-steam-ui-pool-owner.py` (ASan/UBSan). Enable only with
+both MADEIRA_STEAM_UI_SESSION=1 and MADEIRA_STEAM_UI_POOL_TRACE=1. It observes
+known numeric pool-base pairs; it does not alter reservation behavior. Keep
+MADEIRA_STEAM_UI_STRICT_RESERVATIONS=1 during real-client experiments.

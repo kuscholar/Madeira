@@ -617,6 +617,56 @@ and lifetime contracts before testing a correct demand-reduction/ownership
 model. Do not repeat this grid, blindly shrink requested reservations, apply
 the Social Club partial-backing path, or restore overlapping soft grants.
 
+## Builds 22/23 — canonical pool ownership and genuine x86 probe
+
+Research parent revision: f2de51718b629116325e4f4795ab8b5efc29f8fd.
+Build 22 fixes a diagnostic-only impossible guard-size comparison and scans
+bounded writable PE sections using fault-safe reads. Strict overlap rejection
+remains enabled; no reservation or allocator behavior is changed. Host ASan/UBSan
+scanner tests, launcher policy checks, all 37 native units and full iOS build
+passed. Final Mach-O diagnostic and strict-guard markers were inspected before
+signing/installing the isolated lab.
+
+Actual Kusch log identifies adjacent canonical chrome_elf.dll data globals at
+RVAs 0x13ae80/0x13ae88 containing 0x7800000000/0x7400000000. The JIT copy had no
+matching cluster. This attributes the first regular/guarded pool pair to the
+canonical chrome_elf image. It does not establish the later pair's ownership;
+the saved libcef nrip is not a reliable allocation caller. Private 134-second
+log: .madeira-install/steam-ui-pool-owner-build22/madeira-log.txt, SHA256
+b4a59292de6f99a52edfe4ce1e4a14aa6d568c2beaf83d9d52462a7ab3004085.
+SIGTERM did not end this Wine session; the identified lab PID was subsequently
+killed and its absence verified before the next installation.
+
+Upstream Chromium tag 126.0.6478.183 source was actually retrieved and inspected
+(private .madeira-install/chromium126-contracts/). Its Windows 64-bit pool
+contract uses 16 GiB pools and a guard-offset BRP reservation. Smaller iOS pool
+constants are compile-time platform choices, not a demonstrated Windows runtime
+switch. This is a comparator for Valve's matching-version custom CEF, not proof
+of all Valve build flags. No pool-size patch, assertion suppression, foreign-map
+reclamation or FEX edit was applied.
+
+Next hypothesis: genuine Valve x86 components may avoid the 64-bit pool contract.
+Official frozen win32 manifest 1769731672 and its CEF/webhelper packages were
+retrieved and their manifest hashes checked. The DLLs are actual i386 PE files,
+CEF 126.0.6478.183. Valve ended 32-bit Windows client support January 1, 2026;
+this route is an explicitly limited compatibility experiment, not a supported
+current-client solution or an authentication/update bypass.
+
+Build 23 adds the isolated madeira-x86-cef-diagnostics launch argument. It
+validates three i386 PE files and runs the existing chrome-elf heap/thread probe
+compiled for i686 against the genuine chrome_elf import library. Result path:
+C:\madeira-x86-cef-results.txt. Probe SHA256:
+0c469683f47e484c06e9f72888f99b0d61b4ea0e5389cb8cb455ceb86b1a65da.
+Production Swift fixture checks and full unsigned build passed; the final
+Mach-O launch marker and bundled i386 ntdll were verified. Build 23 was signed
+and installed. Resource transfer failed with a closed network socket (CoreDevice7000/POSIX54);
+configuration copy timed out. One lock check confirmed passcodeRequired=true.
+No launch was attempted on the locked phone. Staging/device execution remains
+pending; no x86 runtime
+PASS, full libcef startup, BrowserReady, login or Big Picture result is claimed.
+Private artifacts: .madeira-install/steam-ui-x86-probe-build23/ and
+.madeira-install/steam-ui-client32-candidate/inspection.json.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
@@ -632,7 +682,7 @@ successful build. The three historical failure families remain untested here.
 
 0. Build 20 reserve-only contract test and Build 21 native grid are COMPLETED
    on Kusch; do not repeat them or the obsolete 4016 gate. Installed latest
-   candidate is Build 21. Read native VM evidence/samples, then attribute the
+   candidate is Build 23; finish staging and collect the x86 probe result. Read native VM evidence/samples, then attribute the
    four actual CEF requests and their alignment/allocator/lifetime contracts
    before changing a layout or broker. Preserve strict overlap rejection.
 1. Preserve the passing Build 12/13 synthetic results and artifact hashes.

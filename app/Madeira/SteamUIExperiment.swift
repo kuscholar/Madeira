@@ -14,7 +14,7 @@ enum SteamUIExperiment {
         flag == "1" && bundleID?.hasSuffix(".steamui") == true
     }
     static var enabled: Bool { allowed(flag: MadeiraConfig.get(flag), bundleID: Bundle.main.bundleIdentifier) }
-    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false) throws -> String {
+    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false) throws -> String {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         let drive = prefix.appendingPathComponent("drive_c")
         if reservation {
@@ -22,6 +22,13 @@ enum SteamUIExperiment {
             let batch = "@echo off\r\necho reservation-diagnostic-begin > C:\\madeira-reservation-results.txt\r\nC:\\steam-ui-reservation-probe.exe --isolated-reserve-only >> C:\\madeira-reservation-results.txt 2>&1\r\necho reservation-exit=%errorlevel% >> C:\\madeira-reservation-results.txt\r\n"
             try batch.write(to: drive.appendingPathComponent("madeira-reservation-probe.cmd"), atomically: true, encoding: .utf8)
             return "/c C:\\madeira-reservation-probe.cmd"
+        }
+        if x86CEF {
+            guard isX86PE(drive.appendingPathComponent("Steam32Probe/bin/cef/cef.win7/madeira-chrome-elf32-probe.exe")) else { throw Failure.incompleteProbe }
+            guard ["chrome_elf.dll", "libcef.dll"].allSatisfy({ isX86PE(drive.appendingPathComponent("Steam32Probe/bin/cef/cef.win7/" + $0)) }) else { throw Failure.incompleteProbe }
+            let batch = "@echo off\r\necho x86-cef-diagnostic-begin > C:\\madeira-x86-cef-results.txt\r\nC:\\Steam32Probe\\bin\\cef\\cef.win7\\madeira-chrome-elf32-probe.exe >> C:\\madeira-x86-cef-results.txt 2>&1\r\necho x86-cef-exit=%errorlevel% >> C:\\madeira-x86-cef-results.txt\r\n"
+            try batch.write(to: drive.appendingPathComponent("madeira-x86-cef-probe.cmd"), atomically: true, encoding: .utf8)
+            return "/c C:\\madeira-x86-cef-probe.cmd"
         }
         if fls {
             guard isX64PE(drive.appendingPathComponent("steam-ui-fls-probe.exe")) else { throw Failure.incompleteProbe }
@@ -66,7 +73,9 @@ enum SteamUIExperiment {
             }
         }
     }
-    static func isX64PE(_ url: URL) -> Bool {
+    static func isX64PE(_ url: URL) -> Bool { isPE(url, machine: 0x8664) }
+    static func isX86PE(_ url: URL) -> Bool { isPE(url, machine: 0x014c) }
+    private static func isPE(_ url: URL, machine: UInt16) -> Bool {
         guard url.standardizedFileURL.path == url.resolvingSymlinksInPath().standardizedFileURL.path,
               let handle = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? handle.close() }
@@ -74,7 +83,7 @@ enum SteamUIExperiment {
               data[0] == 0x4d, data[1] == 0x5a else { return false }
         let p = Int(data[60]) | Int(data[61]) << 8 | Int(data[62]) << 16 | Int(data[63]) << 24
         guard p >= 64, p <= data.count - 6 else { return false }
-        return data[p..<p+4].elementsEqual([0x50, 0x45, 0, 0]) && data[p+4] == 0x64 && data[p+5] == 0x86
+        return data[p..<p+4].elementsEqual([0x50, 0x45, 0, 0]) && data[p+4] == UInt8(machine & 255) && data[p+5] == UInt8(machine >> 8)
     }
     static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?) throws -> Plan {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }

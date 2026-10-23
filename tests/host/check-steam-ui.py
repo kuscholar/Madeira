@@ -84,6 +84,23 @@ assert(reserveBatch.contains("--isolated-reserve-only") && reserveBatch.contains
 assert(reserveBatch.unicodeScalars.filter { $0.value == 13 }.count == 4 && reserveBatch.unicodeScalars.filter { $0.value == 10 }.count == 4)
 assert(!reserveBatch.contains("steam.exe") && !reserveBatch.contains("steam-ui-fls"))
 
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", x86CEF: true); fatalError("missing x86 probe") } catch {}
+for name in ["madeira-chrome-elf32-probe.exe", "chrome_elf.dll", "libcef.dll"] {
+    let relative = "Steam32Probe/bin/cef/cef.win7/" + name
+    try pe(relative, machine: 0x014c)
+    let target = root.appendingPathComponent("drive_c/" + relative)
+    try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.moveItem(at: client.appendingPathComponent(relative), to: target)
+    assert(SteamUIExperiment.isX86PE(target) && !SteamUIExperiment.isX64PE(target))
+}
+let x86Args = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", x86CEF: true)
+let x86Batch = try String(contentsOf: root.appendingPathComponent("drive_c/madeira-x86-cef-probe.cmd"), encoding: .utf8)
+assert(x86Args.hasSuffix("madeira-x86-cef-probe.cmd"))
+assert(x86Batch.contains("madeira-chrome-elf32-probe.exe") && x86Batch.contains("x86-cef-exit=%errorlevel%"))
+assert(!x86Batch.contains("steam.exe") && !x86Batch.contains("steamwebhelper"))
+assert(x86Batch.unicodeScalars.filter { $0.value == 13 }.count == 4)
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.working", x86CEF: true); fatalError("working app must refuse x86") } catch {}
+
 print("PASS: feature flag, app isolation, complete x64 client, fixed command, dimensions, sanitized milestones")
 '''
 info = plistlib.loads((root/'app/Madeira/Info.plist').read_bytes())

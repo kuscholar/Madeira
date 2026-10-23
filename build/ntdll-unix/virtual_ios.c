@@ -1725,6 +1725,46 @@ static uint64_t ios_guest_ctx_rip(void)
  * only be stored in data). */
 const char *ios_pe_module_name( const void *image_base, size_t image_size );
 
+#include "../diagnostics/steam_ui_pool_owner.h"
+static int ios_steam_ui_pool_trace_enabled(void)
+{
+    const char *session = getenv("MADEIRA_STEAM_UI_SESSION");
+    const char *trace = getenv("MADEIRA_STEAM_UI_POOL_TRACE");
+    return session && session[0]=='1' && !session[1] && trace && trace[0]=='1' && !trace[1];
+}
+struct steam_ui_owner_context { const char *module, *view; uint64_t base; void *owner, *current; };
+static int ios_steam_ui_owner_read(void *context, uint64_t address, void *buffer, size_t size)
+{
+    mach_vm_size_t got = 0;
+    return mach_vm_read_overwrite(mach_task_self(),address,size,(mach_vm_address_t)buffer,&got)==KERN_SUCCESS && got==size;
+}
+static void ios_steam_ui_owner_emit(void *arg, uint32_t a, uint64_t av, uint32_t b, uint64_t bv)
+{
+    const struct steam_ui_owner_context *c=arg;
+    dprintf(2,"[steam-ui-pool-owner] module=%s view=%s image=0x%llx map_peb=%p current_peb=%p rva_a=0x%x value_a=0x%llx rva_b=0x%x value_b=0x%llx\n",
+        c->module,c->view,(unsigned long long)c->base,c->owner,c->current,a,(unsigned long long)av,b,(unsigned long long)bv);
+}
+static void ios_steam_ui_pool_owner_search(const uint64_t *wanted, unsigned nwanted)
+{
+    unsigned scanned=0;
+    for(unsigned i=0;i<(unsigned)ios_jit_mapping_count && scanned<8;i++) {
+        struct ios_jit_mapping *m=&ios_jit_mappings[i];
+        if(!m->pe_base || m->unmapped)continue;
+        const char *name=ios_pe_module_name(m->pe_base,m->size), *known=NULL;
+        if(name && !strcasecmp(name,"chrome_elf.dll"))known="chrome_elf.dll";
+        if(name && !strcasecmp(name,"libcef.dll"))known="libcef.dll";
+        if(!known)continue;
+        scanned++;
+        for(unsigned view=0;view<2;view++) {
+            uint64_t base=(uintptr_t)(view?m->jit_base:m->pe_base);
+            if(!base || (view && m->pe_base==m->jit_base))continue;
+            struct steam_ui_owner_context c={known,view?"jit-copy":"canonical",base,m->map_peb,NtCurrentTeb()?NtCurrentTeb()->Peb:NULL};
+            unsigned found=steam_ui_scan_pool_owner(base,m->size,ios_steam_ui_owner_read,ios_steam_ui_owner_emit,&c,wanted,nwanted);
+            dprintf(2,"[steam-ui-pool-owner] scan module=%s view=%s clusters=%u\n",known,c.view,found);
+        }
+    }
+}
+
 static void ios_pool_owner_search( const uint64_t *wanted, unsigned nwanted )
 {
     /* ml148: the first cut matched 823 times across every module, because the
@@ -1900,7 +1940,9 @@ static void ios_jumbo_census( void *hint, size_t size, void *result, unsigned st
                 granted_bases[granted_n++] = (uint64_t)(uintptr_t)result;
                 /* a guard-style reserve returns the FORBIDDEN ZONE base; PA
                  * records the pool proper, 64KB higher. Look for both. */
-                if (granted_n < 8 && (size & 0xffff) == 0x10000 - 0)
+                /* Legacy (size & 0xffff)==0x10000 could never record BRP's
+                 * pool proper. Repair only for the opt-in Steam UI diagnostic. */
+                if (granted_n < 8 && ios_steam_ui_pool_trace_enabled() && steam_ui_pool_guarded(size))
                     granted_bases[granted_n++] = (uint64_t)(uintptr_t)result + 0x10000;
             } }
     if (st && granted_n && !owner_searched)
@@ -1908,7 +1950,8 @@ static void ios_jumbo_census( void *hint, size_t size, void *result, unsigned st
         owner_searched = 1;
         dprintf(2, "[pool-owner] searching %u module copies for %u granted pool bases...\n",
                 ios_jit_mapping_count, granted_n);
-        ios_pool_owner_search( granted_bases, granted_n );
+        if (ios_steam_ui_pool_trace_enabled()) ios_steam_ui_pool_owner_search(granted_bases,granted_n);
+        else ios_pool_owner_search( granted_bases, granted_n );
         dprintf(2, "[pool-owner] search done\n");
     }
 
