@@ -1611,7 +1611,8 @@ struct ContentView: View {
         HStack(spacing: 8) {
             // Live debugger/JIT state, not the (macOS-only, never granted on
             // iOS) allow-jit entitlement the old badge checked.
-            entitlementBadge("JIT", granted: debuggerAttached)
+            // The debugger deliberately detaches after the executable pool is ready.
+            entitlementBadge("JIT", granted: debuggerAttached || StikJITHelper.poolTaken)
             entitlementBadge("Memory+", granted: ents.increasedMemory)
             entitlementBadge("64-bit VA", granted: ents.extendedVA)
             Spacer()

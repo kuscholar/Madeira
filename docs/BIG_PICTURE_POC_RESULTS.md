@@ -1,7 +1,7 @@
 # Genuine Steam UI PoC results
 
 Updated 2026-10-22. Current phase: Phase 0 complete; Phase 1 controlled launcher
-implemented and exercised; first CEF load failed due to JIT pool capacity. Build 10 tests a placement correction, pending device execution. Main remains
+implemented and exercised; first CEF load failed due to JIT pool capacity. Build 10 rejected fixed secondary preparation and later exhausted image space. Build 11 tests existing region C, pending execution. Main remains
 the playable Build 8 baseline. This document is the recurring task's resume point.
 
 ## What has actually been established
@@ -137,6 +137,46 @@ Mach-O contains the new diagnostic. Device execution of this candidate is
 pending; the user has been asked to repeat Enable JIT and Steam UI Experiment.
 The original working app/main remain unchanged.
 
+## Experiment 3: Build 10 rejects fixed reservation; test existing region C
+
+Build 10 / source 29f5f6f confirms that the requested exact secondary region did
+NOT satisfy the complete RX verification. It was correctly released. The
+caller-reserved-memory hypothesis is not supported on this device; the host
+mock-debugger test did not predict iOS preparation. Build 11 removes that path
+and its obsolete mock test, restoring the prior allocator. The rejected
+candidate/test remain reproducible at commit 29f5f6f; no mprotect override or
+relaxed permission check was added.
+
+The first helper got further because this launch's primary region was 592 MiB
+rather than 464 MiB, NOT because the candidate succeeded. libcef.dll loaded and
+cef_log reported Chrome 126.0.6478.183. Later libglesv2.dll requested 0x7c8000
+bytes with only 0x134000 main virgin bytes available, failing STATUS_NO_MEMORY;
+more image failures followed. A helper then raised breakpoint 0x80000003 at
+libcef+0x59ef905. Allocation failures precede this, but their causal relationship
+to the breakpoint is not proved. No BrowserReady or interactive login observed.
+See STEAM_UI_RUN2_EVIDENCE.json; raw logs stay outside Git.
+
+The JIT badge turned orange because it only queried debugger attachment. The
+log shows intentional early detach AFTER pool readiness; this is distinct from
+losing the prepared executable pool. Background thread/FEX statistics continuing
+to update are not Steam UI readiness. Build 11's badge accepts either an attached
+debugger or the existing successfully prepared poolTaken state.
+
+Next single-hypothesis test: enable existing `pool-low = 1` only in the lab cfg,
+keeping the previous `pool-split = 1`. Region C already supports placing FEX
+code buffers in a separate debugger-created region below the executable window,
+leaving more main-pool room for images. No allocator, Chromium or FEX source
+change is introduced for this experiment. Require actual region-C RX/RW alias
+acceptance, reduced main-pool tail consumption and successful libglesv2/import
+loads. A missing C region or fresh memory exhaustion rejects this hypothesis;
+further CEF errors must be diagnosed separately. Do not assume smaller primary
+layouts will fit. The default 128 MiB low-image margin is unchanged.
+
+Host pool-low/split, JIT-method, Steam policy and frontend regressions pass.
+Build 11 compiled, passed strict signature verification, and was installed and
+launched. Region-C execution remains pending. This experiment
+still has no interactive login, authentication, Big Picture or controller result.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
@@ -148,9 +188,9 @@ successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
-0. Collect Build 10 exact-secondary preparation and libcef load results first.
-   Build 9 established an executable-image capacity failure, not one of the
-   historical CEF crash/render/network families. Do not blindly restart Steam.
+0. Collect Build 11 region-C RX/RW acceptance, pool sizes/tail usage, and
+   libglesv2/CEF startup evidence. Build 10 rejected exact preparation; do not
+   retry that path or attribute ASLR capacity changes to it.
 1. With the isolated app now provisioned and installed, run the synthetic PE in the
    separate app/prefix and record child exit plus shared-match, with Windows
    control if available. Record exact installed Mach-O hashes.

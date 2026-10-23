@@ -6,10 +6,10 @@ published notes at deezhizyu/madeira 97e2ce2, not a new device run.
 
 | Area | Historical report | Current source/local evidence | Current-device status / next discriminator |
 |---|---|---|---|
-| Real Steam login | Interactive login/QR refresh reported | Existing services + desktop + steam.exe route; new isolated opt-in launch policy compiles | Build 9 ran real Steam; webhelper-not-responding dialog, no login UI |
-| CEF child model | Single-process CEF needed for VA capacity | Initial webhelper allowed, --single-process injected; --type children refused | Helper starts/ends confirmed; libcef image load fails STATUS_NO_MEMORY before readiness |
+| Real Steam login | Interactive login/QR refresh reported | Existing services + desktop + steam.exe route; new isolated opt-in launch policy compiles | Build 9 webhelper error; Build 10 blank desktop after CEF/import failures, no login UI |
+| CEF child model | Single-process CEF needed for VA capacity | Initial webhelper allowed, --single-process injected; --type children refused | Build 9 libcef load fails; Build 10 libcef initializes, later imports fail; no BrowserReady |
 | dwrite/text | Missing unixlib, then text rendered | dwrite object compiled and explicitly archived by native build script | Current Steam text not observed |
-| JIT provisioning | Early detach avoided a historical stall | Existing StikJIT/pool setup; no new entitlement requested | Separate app/helper provisioned; device debugger active. 464 MiB primary pool; secondary placement failed. Build 10 exact reservation pending |
+| JIT provisioning | Early detach avoided a historical stall | Existing StikJIT/pool setup; no new entitlement requested | Provisioned; intentional detach confirmed. Build 10 fixed RX preparation rejected; Build 11 tests existing region C |
 | libcef+0x41258FB | kr=10 on mapped RW data; cause open | Later owner/backing probes present; no new retry/protection workaround | Not reproduced; collect Mach return code and mapping/backing lifetime first |
 | Skia tile displacement | 254px tile-related displacement; FEX hypothesis unproved | Existing surface/compositor path; new observer reports only host present, never correctness | Need paired SRC/SURF checksums and isolated raster PE/control; not yet implemented |
 | CM networking | TCP connected; some TLS; WebSocket/auth failed | Existing native network stack and true Valve auth remain | CEF load failed before UI; CM/TLS/WS/auth behavior not yet evaluated |

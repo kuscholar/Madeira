@@ -1283,14 +1283,7 @@ enum StikJITHelper {
                 if a == h.base { plugs.append((a, vm_size_t(h.size))) } else { vm_deallocate(mach_task_self_, a, vm_size_t(h.size)) }
             }
         }
-        // Steam UI run 1: B landed in the lower free run despite the plugs,
-        // leaving 464MB and making libcef's 212MB image copy fail. The existing
-        // debugger protocol also accepts a caller-reserved address. Reserve the
-        // measured B run exactly, prepare it once, and verify actual RX pages.
-        // This is isolated from ordinary game pool allocation.
-        let got = SteamUIExperiment.enabled
-            ? prepareFixedSteamUIRegion(base: best.base, size: size)
-            : jit26_prepare_region(nil, Int(size))
+        let got = jit26_prepare_region(nil, Int(size))
         for (a, sz) in plugs { vm_deallocate(mach_task_self_, a, sz) }
         guard let p = got, p != UnsafeMutableRawPointer(bitPattern: 0) else {
             LogStore.shared.log("[pool-split] the debugger did not allocate the second region (\(size >> 20)MB) — the pool "
@@ -1357,46 +1350,6 @@ enum StikJITHelper {
             + "between the regions: %luKB, %luKB of it free and now held PROT_NONE",
             Int(b), Int(size >> 20), desc, Int(b - aEnd) >> 10, held >> 10))
         return (b, size)
-    }
-
-    private static func prepareFixedSteamUIRegion(base: vm_address_t, size: vm_address_t) -> UnsafeMutableRawPointer? {
-        guard size > 0, base & 0x3fff == 0, size & 0x3fff == 0,
-              base <= vm_address_t.max - size else { return nil }
-        var address = base
-        let kr = vm_allocate(mach_task_self_, &address, vm_size_t(size), 0 /* FIXED, never OVERWRITE */)
-        guard kr == KERN_SUCCESS else {
-            LogStore.shared.log("[steam-ui-pool] exact reservation failed kr=\(kr)", level: .error)
-            return nil
-        }
-        var accepted = false
-        defer { if !accepted { vm_deallocate(mach_task_self_, address, vm_size_t(size)) } }
-        guard address == base,
-              let pointer = UnsafeMutableRawPointer(bitPattern: UInt(base)),
-              jit26_prepare_region(pointer, Int(size)) == pointer else { return nil }
-        var cursor = base
-        while cursor < base + size {
-            var start = cursor
-            var span: vm_size_t = 0
-            var info = vm_region_basic_info_data_64_t()
-            var count = mach_msg_type_number_t(MemoryLayout<vm_region_basic_info_data_64_t>.size / MemoryLayout<Int32>.size)
-            var object: mach_port_t = 0
-            let result = withUnsafeMutablePointer(to: &info) {
-                $0.withMemoryRebound(to: Int32.self, capacity: Int(count)) {
-                    vm_region_64(mach_task_self_, &start, &span, VM_REGION_BASIC_INFO_64, $0, &count, &object)
-                }
-            }
-            if object != 0 { mach_port_deallocate(mach_task_self_, object) }
-            guard result == KERN_SUCCESS, start <= cursor, span > 0,
-                  start <= vm_address_t.max - span, start + span > cursor,
-                  info.protection & (VM_PROT_READ | VM_PROT_EXECUTE) == (VM_PROT_READ | VM_PROT_EXECUTE) else {
-                LogStore.shared.log("[steam-ui-pool] debugger preparation did not produce a complete RX region", level: .error)
-                return nil
-            }
-            cursor = min(start + span, base + size)
-        }
-        accepted = true
-        LogStore.shared.log(String(format: "[steam-ui-pool] exact secondary RX verified base=0x%lx size=%luMB", Int(base), Int(size >> 20)))
-        return pointer
     }
 
     /// madeira-bcd pool-low: region C, the third debugger region. It is a free run in

@@ -148,18 +148,26 @@ markers remain inconclusive. Interactive pixels and device crash evidence are
 still required before declaring the login milestone.
 
 
-## Exact secondary-region experiment (Build 10)
+## Current capacity experiment (Build 11)
+
+Build 10's exact secondary-region approach failed actual iOS RX verification
+and has been removed. Its host mock test and candidate remain at commit
+29f5f6f, for diagnosis only. See docs/STEAM_UI_RUN2_EVIDENCE.json.
+
+Use `tests/steam-ui/lab-madeira.cfg` only in the isolated app. Its sole new
+capacity option is `pool-low = 1`; existing region C moves FEX buffers out of
+the image pool. Do not copy it to the working baseline. No default allocator
+or FEX change is needed. Relevant host regression checks:
 
 ```sh
-python3 tests/host/check-steam-ui-pool.py
+python3 tests/host/check-pool-low.py
 python3 tests/host/check-pool-split.py
-python3 tests/host/check-pool-placement.py
+python3 tests/host/check-jit-method.py
+python3 tests/host/check-steam-ui.py
+python3 tests/host/check-frontend.py
 ```
 
-The first compiles the production Swift helper against host Mach VM with a
-mocked debugger; it checks occupied memory, failed/mismatched/non-RX preparation
-and successful RX acceptance. It does not execute iOS JIT. Only the experimental
-Steam UI mode uses this helper. Record `[steam-ui-pool] exact secondary RX
-verified` and actual split-pool sizes, then libcef image-load success/failure
-from the next device run. Compare against the evidence in
-`docs/STEAM_UI_RUN1_EVIDENCE.json`; do not infer success from the Build 10 install.
+Require accepted region-C RX/RW mappings, main-pool tail consumption and
+libglesv2/import results from the next device run. The JIT badge now remains
+green after intentional debugger detach when a pool was successfully prepared;
+it does not imply CEF rendering or game success.
