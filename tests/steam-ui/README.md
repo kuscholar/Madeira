@@ -459,3 +459,44 @@ With llvm-mingw-20260421-ucrt-macos-universal, the script reproduced SHA256
 `0c469683f47e484c06e9f72888f99b0d61b4ea0e5389cb8cb455ceb86b1a65da`,
 identical to the staged host candidate. This establishes build reproducibility,
 not execution on the phone. No Valve DLLs are bundled by this script.
+
+
+### Explicit genuine win32 client experiment (Build24)
+
+After the narrow x86 probe has passed, use the official win32 manifest with:
+
+```sh
+python3 tools/fetch-steam-ui-client.py --architecture win32 \
+  --manifest /private/path/steam_client_win32 \
+  --cache /private/path/cache --output /private/path/Steam
+```
+
+The output must be new. This validates package size/SHA256 from the HTTPS
+manifest; manifest signatures are not independently verified. Stage that complete
+client under drive_c/Steam32Lab in the isolated lab only. Launch explicitly with
+madeira-steam-ui-x86-experiment; default Steam UI Experiment continues to use x64.
+All four launch files must have i386 PE headers. Do not rename an x64 DLL, mix
+package versions, copy login caches or add update/authentication bypass flags.
+Collect the lab log and Steam32Lab/logs privately. BrowserReady and interactive
+login must be observed separately from loader success. This frozen Valve client
+is unsupported and is not established as a maintained deployment solution.
+
+
+When CoreDevice directory copy is unreliable, Build25 supports an optional
+`Steam32OfficialClient` directory in the privately generated app bundle. Add
+only the complete manifest-verified official staging tree before signing;
+verify every file hash again, then sign/install the lab. Do not add it to Git.
+The explicit x86 experiment imports it once into new `Steam32BundleLab`, via a
+unique temporary directory and atomic move. Existing targets are preserved.
+The x86 launch checks that directory before the manually staged Steam32Lab.
+No resource import happens during ordinary launch or the default x64 experiment.
+
+
+For the x86 client experiment launched through the 64-bit desktop, set
+`env.MADEIRA_GDI_SHARED_SECTION = 1` in the isolated lab config before a fresh
+launch. This existing Wine option ensures session GDI handles have guest-window
+views. In actual Build25, the option produced a section-backed table and child
+view and allowed the genuine Steam updater to run, whereas the initial run
+faulted in i386 gdi32 get_gdi_client_ptr. A JIT allocation failure before Wine is
+an invalid comparison, not evidence about this option. Leave the normal app
+configuration unchanged. Allow official updates and record resulting binaries.

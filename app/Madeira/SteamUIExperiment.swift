@@ -85,18 +85,31 @@ enum SteamUIExperiment {
         guard p >= 64, p <= data.count - 6 else { return false }
         return data[p..<p+4].elementsEqual([0x50, 0x45, 0, 0]) && data[p+4] == UInt8(machine & 255) && data[p+5] == UInt8(machine >> 8)
     }
-    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?) throws -> Plan {
+    static func importBundledX86(source: URL, prefix: URL, flag: String?, bundleID: String?) throws {
+        guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
+        guard source.standardizedFileURL.path == source.resolvingSymlinksInPath().standardizedFileURL.path,
+              ["steam.exe", "steamclient.dll", "bin/cef/cef.win7/steamwebhelper.exe", "bin/cef/cef.win7/libcef.dll"].allSatisfy({ isX86PE(source.appendingPathComponent($0)) }) else { throw Failure.incompleteClient }
+        let target = prefix.appendingPathComponent("drive_c/Steam32BundleLab")
+        // Never overwrite a previous client, prefix, login cache or save.
+        guard !FileManager.default.fileExists(atPath: target.path) else { return }
+        guard target.deletingLastPathComponent().standardizedFileURL.path == target.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path else { throw Failure.incompleteClient }
+        let temporary = target.deletingLastPathComponent().appendingPathComponent(".steam32-import-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try FileManager.default.copyItem(at: source, to: temporary)
+        try FileManager.default.moveItem(at: temporary, to: target)
+    }
+    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?, x86Client: Bool = false) throws -> Plan {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         guard (640...3840).contains(width), (360...2160).contains(height) else { throw Failure.invalidSize }
         let drive = prefix.appendingPathComponent("drive_c")
-        for relative in ["Program Files (x86)/Steam", "Program Files/Steam"] {
+        for relative in (x86Client ? ["Steam32BundleLab", "Steam32Lab"] : ["Program Files (x86)/Steam", "Program Files/Steam"]) {
             let root = drive.appendingPathComponent(relative)
             guard root.standardizedFileURL.path == root.resolvingSymlinksInPath().standardizedFileURL.path,
-                  isX64PE(root.appendingPathComponent("steam.exe")),
-                  isX64PE(root.appendingPathComponent("steamclient64.dll")) else { continue }
-            let hasCEF = ["bin/cef/cef.win7x64", "bin/cef/cef.win64", "bin/cef"].contains { folder in
+                  isPE(root.appendingPathComponent("steam.exe"), machine: x86Client ? 0x014c : 0x8664),
+                  isPE(root.appendingPathComponent(x86Client ? "steamclient.dll" : "steamclient64.dll"), machine: x86Client ? 0x014c : 0x8664) else { continue }
+            let hasCEF = (x86Client ? ["bin/cef/cef.win7"] : ["bin/cef/cef.win7x64", "bin/cef/cef.win64", "bin/cef"]).contains { folder in
                 let cef = root.appendingPathComponent(folder)
-                return isX64PE(cef.appendingPathComponent("steamwebhelper.exe")) && isX64PE(cef.appendingPathComponent("libcef.dll"))
+                return isPE(cef.appendingPathComponent("steamwebhelper.exe"), machine: x86Client ? 0x014c : 0x8664) && isPE(cef.appendingPathComponent("libcef.dll"), machine: x86Client ? 0x014c : 0x8664)
             }
             guard hasCEF else { continue }
             let plan = Plan(windowsDirectory: "C:\\" + relative.replacingOccurrences(of: "/", with: "\\"), width: width, height: height)
@@ -126,7 +139,7 @@ final class SteamUIEvidence {
     func start(prefix: URL) {
         timer?.invalidate(); offsets = [:]; reported = []; ticks = 0; sawRunning = false
         firstPresent = winios_surface_present_count()
-        for base in ["Program Files (x86)/Steam", "Program Files/Steam"] {
+        for base in ["Program Files (x86)/Steam", "Program Files/Steam", "Steam32Lab", "Steam32BundleLab"] {
             for file in ["logs/cef_log.txt", "logs/webhelper.txt", "logs/console_log.txt"] {
                 let url = prefix.appendingPathComponent("drive_c/" + base + "/" + file)
                 let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.uint64Value ?? 0

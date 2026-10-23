@@ -718,3 +718,105 @@ The script verifies i386 PE output and refuses overwriting an existing result.
 Remaining discriminator is unchanged: after native unlock, finish staging the
 candidate/config and launch madeira-x86-cef-diagnostics once, then inspect its
 result and private app log. No x86 execution or interactive CEF claim.
+
+
+## Actual Build 23 result after Device Hub reconnection
+
+Device Hub restored development access; initial lock check confirmed unlocked.
+Config and genuine x86 resources were copied successfully. Explicit diagnostic
+launch produced a fresh result: import-entry-reached, verifier-ready, all four
+thread rounds with zero failures, result PASS and x86-cef-exit=0. Device log
+confirms WoW64 guest window 0x7900000000. See STEAM_UI_X86_EVIDENCE.json for
+hashes and limits; private files are in steam-ui-x86-probe-build23.
+
+The native log subsequently reports an unhandled jit26_detach protocol breakpoint
+after the guest result was written. This does not invalidate the recorded narrow
+result, but is not evidence of clean session teardown. First kill attempt had a
+remote-service connection error; a fresh process inventory confirmed the same
+lab PID still alive, then a second kill succeeded and process absence was verified.
+No overlapping lab launch or ordinary gaming app termination occurred.
+
+Next hypothesis: a genuine i386 full-client CEF path may avoid the measured x64
+pool capacity gate. Build24 adds an explicit madeira-steam-ui-x86-experiment
+argument, requiring the same experiment flag and .steamui bundle. It selects only
+Steam32Lab, verifies i386 Steam/client/webhelper/libcef headers and reuses the
+existing fixed login-only command, without update or authentication bypass flags.
+Default x64 launch is unchanged. Full official win32 manifest1769731672 (19
+packages) was staged separately with size/SHA256 checks. The staging utility now
+accepts an explicit win32 architecture, defaulting to the original win64 behavior.
+Both real manifests parsed successfully. Production Swift fixture checks cover
+missing/mixed architecture and working-bundle refusal. Full Build24 succeeded;
+final launch marker inspected, signed and installed. Full-client device result
+is pending; unsupported 32-bit client limitations still apply.
+
+
+Build24 resource transfer did not complete: directory copy timed out at120s;
+key steam.exe was absent on readback, a single-file retry also timed out. A
+subsequent directory listing showed only partial files. The phone was unlocked
+and app control worked; opening Build24 without experiment arguments succeeded.
+No full-client launch was attempted on incomplete resources.
+
+Build25 addresses this deployment gate only: an optional Steam32OfficialClient
+folder inside the privately generated signed app can be imported to the new
+Steam32BundleLab directory. The importer is .steamui/feature gated, checks i386
+entry files, stages through a unique temporary directory and never overwrites
+an existing target. Main game data and partial Steam32Lab are untouched. A host
+fixture verifies import isolation and preservation of existing target data.
+Default app launches still import/start nothing. Resource files are absent from
+Git; all bundled file sizes/hashes were compared against the official package
+inventory before re-signing. No Steam/auth/updater code is patched by import.
+
+
+Build25 full unsigned build, final launch marker, bundled resource hash audit
+and deep strict signature verification PASS. Its 120-second installation
+command timed out; a subsequent authoritative apps inventory still reports
+installed Build24. Build25 must NOT be described as installed. Device Hub screen
+session was stopped and reconnected once without rebooting/unpairing the phone.
+Small-file transport is being rechecked; no full x86 Steam launch has occurred.
+Private Build24/25 logs and inventory files reside outside Git. Main remains
+clean at ee9fd2f. Next: restore data transport or complete the already signed
+Build25 install, verify the actual installed version, then launch the explicit
+x86 experiment and collect authentic Steam/CEF evidence.
+
+
+### Build25 authoritative install and first full-client device result
+
+A later apps inventory after reconnect confirmed Build25: installation completed
+on-device after the CLI timeout. Do not infer failure solely from a command
+observation timeout. No duplicate install was started. Explicit x86 launch
+imported the full client successfully and enabled automatic paired JIT. Actual
+trace shows steam.exe running as machine014c, bootstrap updater Jan29,2026,
+then guest exit0xc0000005 before any steamwebhelper/BrowserReady.
+
+Mach failure is kr2 PROTECTION_FAILURE, guest read0x53e007be (host0x7953e007be),
+not the historical libcef offset/KERN_MEMORY_ERROR. Reconstructed EIP0x7ba0ff61
+and module base gdi32=0x7b9f0000 identify RVA0x1ff61. Actual bundled i386 gdi32
+disassembly names get_gdi_client_ptr+0x41, a byte read from the GDI shared table.
+The native trace earlier allocated the master at0x7053e00000; truncation/window
+translation is a plausible cause, not yet proven by a successful fix.
+
+Existing Wine source explicitly provides MADEIRA_GDI_SHARED_SECTION=1 for a
+64-bit launcher that later creates 32-bit children. No [gdi-shared] marker was
+observed in the first run, although its code exists in the final native image.
+Next single-variable test enables that existing option only in the private lab
+config; no new Wine/FEX/runtime patch. First attempt stopped before Wine because
+JIT pool allocation failed at its safe-address check, so it is an INVALID GDI
+comparison. Its PID was already gone on termination query. One subsequent fresh
+launch keeps the identical config; evaluate it separately. Private bootstrap,
+native traces and launch/install inventories: steam-ui-x86-client-build25/.
+
+
+### Valid GDI single-variable comparison: updater reached
+
+The subsequent same-config run entered Wine successfully. Actual log confirms
+[gdi-shared] section-backed master0x70553a0000 and child guest-view0x7901a40000
+for peb0x7900310000/pid0058. The previous get_gdi_client_ptr protection fault
+was not observed in the bounded captured interval. Real Steam updater window
+was visible in Device Hub. Valve bootstrap log reports downloading229240KB,
+download complete, then extracting package. Authentication/licensing/update
+checks were left intact; no credentials were entered. This supports the GDI
+publication hypothesis for the earlier fault, not a complete allocator/CEF fix.
+The official updater may change client files; pin post-update hashes before
+attributing any later result to the original staged manifest. CEF/helper/login
+is still pending at this checkpoint. No runtime patch was needed for this gate:
+only existing MADEIRA_GDI_SHARED_SECTION=1 in the private experimental config.

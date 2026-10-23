@@ -49,6 +49,36 @@ refused("1", "test.steamui")
 try FileManager.default.removeItem(at: dll)
 try FileManager.default.moveItem(at: outside, to: dll)
 do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1, height: 648, flag: "1", bundleID: "test.steamui"); fatalError("invalid size") } catch {}
+
+do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true); fatalError("must not fall back to x64") } catch {}
+for name in ["steam.exe", "steamclient.dll", "bin/cef/cef.win7/steamwebhelper.exe", "bin/cef/cef.win7/libcef.dll"] {
+    try pe("x86-fixture/" + name, machine: 0x014c)
+}
+try FileManager.default.moveItem(at: client.appendingPathComponent("x86-fixture"), to: root.appendingPathComponent("drive_c/Steam32Lab"))
+let p32 = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true)
+assert(p32.windowsDirectory == "C:\\Steam32Lab")
+let dll32 = root.appendingPathComponent("drive_c/Steam32Lab/bin/cef/cef.win7/libcef.dll")
+var mixed = try Data(contentsOf: dll32)
+mixed[132] = 0x64; mixed[133] = 0x86
+try mixed.write(to: dll32)
+do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true); fatalError("mixed CEF architecture refused") } catch {}
+mixed[132] = 0x4c; mixed[133] = 0x01
+try mixed.write(to: dll32)
+
+assert(!p32.batch.contains("noupdate") && !p32.batch.contains("login"))
+let source32 = root.appendingPathComponent("drive_c/Steam32Lab")
+do { try SteamUIExperiment.importBundledX86(source: source32, prefix: root, flag: "1", bundleID: "test.working"); fatalError("import isolation") } catch {}
+try SteamUIExperiment.importBundledX86(source: source32, prefix: root, flag: "1", bundleID: "test.steamui")
+let bundled32 = root.appendingPathComponent("drive_c/Steam32BundleLab")
+let sentinel = bundled32.appendingPathComponent("keep-existing-data.txt")
+try "preserve".write(to: sentinel, atomically: true, encoding: .utf8)
+try SteamUIExperiment.importBundledX86(source: source32, prefix: root, flag: "1", bundleID: "test.steamui")
+let preservedText = try String(contentsOf: sentinel, encoding: .utf8)
+assert(preservedText == "preserve")
+let importedPlan = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true)
+assert(importedPlan.windowsDirectory == "C:\\Steam32BundleLab")
+
+do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.working", x86Client: true); fatalError("working app refused") } catch {}
 assert(SteamUIExperiment.milestones(in: "arbitrary account=PRIVATE token=SECRET").isEmpty)
 assert(SteamUIExperiment.milestones(in: "ChromeMainDelegate payload=PRIVATE BrowserReady SECRET") == ["cef-initialization-reported", "browser-ready-reported"])
 do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: nil, bundleID: "test.steamui"); fatalError("disabled probe") } catch {}

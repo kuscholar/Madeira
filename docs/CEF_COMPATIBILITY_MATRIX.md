@@ -61,3 +61,18 @@ all created mappings and query ports released. This confirms a current-layout
 capacity gate, not interactive CEF or a device-wide impossibility result.
 See STEAM_UI_NATIVE_VM_EVIDENCE.json. Installed candidate is Build 21; previous
 4016 and pending Build 20 gates are obsolete.
+
+
+Build23 actual Kusch i386 result: genuine chrome_elf import, verifier and four
+heap/thread rounds PASS, exit0. Full libcef/Steam is NOT covered. Native
+jit26_detach breakpoint followed guest completion; clean teardown is unproven.
+Build24's explicit Steam32Lab full-client launch is a separate pending test.
+Evidence: STEAM_UI_X86_EVIDENCE.json.
+
+
+Build25 full x86 client: initial gdi32 get_gdi_client_ptr access violation;
+existing MADEIRA_GDI_SHARED_SECTION=1 then publishes the table into the WoW child
+and reaches a visible genuine Steam updater (download complete, installing).
+This is pre-CEF progress; BrowserReady/login and Big Picture remain unverified.
+The official updater is allowed to change binaries; re-pin them before later
+compatibility conclusions. See STEAM_UI_X86_EVIDENCE.json.

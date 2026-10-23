@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Madeira Converter Exception: see LICENSE-EXCEPTION.md
-"""Stage public Valve win64 client packages, never account data or a live prefix.
+"""Stage public Valve Windows client packages, never account data or a live prefix.
 
-Input is an explicitly saved steam_client_win64 manifest from Valve's HTTPS CDN.
+Input is an explicitly saved steam_client_win32/steam_client_win64 manifest from Valve's HTTPS CDN.
 The manifest's signatures are not verified by this utility; package SHA-256 and
 size are verified against that manifest. Keep its hash with experiment evidence.
 """
@@ -30,7 +30,7 @@ def digest(path):
     return h.hexdigest()
 
 
-def parse_manifest(text):
+def parse_manifest(text, architecture="win64"):
     tokens = re.findall(r'"[^"\r\n]*"|[{}]', text)
     pos = 0
 
@@ -61,15 +61,17 @@ def parse_manifest(text):
             raise ValueError('Missing closing brace')
         return result
 
-    root = obj()['win64']
+    if architecture not in ('win32', 'win64'):
+        raise ValueError('Unsupported architecture')
+    root = obj()[architecture]
     packages = {k: v for k, v in root.items() if isinstance(v, dict) and 'file' in v}
-    packages['steam_win64'] = root['steam_win64']['steamrow']
+    packages['steam_' + architecture] = root['steam_' + architecture]['steamrow']
     for p in packages.values():
         if not re.fullmatch(r'[A-Za-z0-9_.-]+', p['file']):
             raise ValueError('Invalid package filename')
         if not re.fullmatch(r'[a-f0-9]{64}', p['sha2']) or not 0 < int(p['size']) < 1024**3:
             raise ValueError('Invalid package digest/size')
-    for required in ('bins_win64', 'bins_cef_win64', 'bins_webhelpers_win64', 'steam_win64'):
+    for required in tuple(name + architecture for name in ('bins_', 'bins_cef_', 'bins_webhelpers_', 'steam_')):
         if required not in packages:
             raise ValueError('Missing package: ' + required)
     return root['version'], packages
@@ -90,12 +92,13 @@ def safe_member(info):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--manifest', type=Path, required=True)
+    ap.add_argument('--architecture', choices=('win32', 'win64'), default='win64')
     ap.add_argument('--cache', type=Path, required=True)
     ap.add_argument('--output', type=Path, required=True, help='Must not exist')
     args = ap.parse_args()
     if args.output.exists() or args.output.is_symlink():
         ap.error('Output must be a new staging directory, never a live installation')
-    version, packages = parse_manifest(args.manifest.read_text())
+    version, packages = parse_manifest(args.manifest.read_text(), args.architecture)
     args.cache.mkdir(parents=True, exist_ok=True)
 
     def fetch(item):
@@ -137,7 +140,7 @@ def main():
                     else:
                         with z.open(info) as src, dest.open('xb') as out:
                             shutil.copyfileobj(src, out)
-        report = {'source': CDN + 'steam_client_win64', 'version': version,
+        report = {'source': CDN + 'steam_client_' + args.architecture, 'version': version,
                   'manifest_sha256': digest(args.manifest),
                   'integrity': 'HTTPS manifest and package SHA256; manifest signatures not independently verified',
                   'packages': packages, 'expanded_bytes': total,
@@ -146,7 +149,7 @@ def main():
         (Path(td) / 'inventory.json').write_text(json.dumps(report, indent=2) + '\n')
         stage.rename(args.output)
         shutil.copyfile(Path(td) / 'inventory.json', args.output.parent / (args.output.name + '-inventory.json'))
-    print('STAGED Valve win64 client ' + version + ' (not executed)', flush=True)
+    print('STAGED Valve ' + args.architecture + ' client ' + version + ' (not executed)', flush=True)
 
 
 if __name__ == '__main__':
