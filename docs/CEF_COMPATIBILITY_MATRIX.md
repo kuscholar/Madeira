@@ -42,3 +42,12 @@ libcef+0x6923404 rather than chrome_elf+0xd7e3e. This is an allocation/layout
 gate, not CEF success or proof of the sole original cause. Existing brp-contain
 text misclassifies generic fatal byte patterns; use module/RVA/context.
 See STEAM_UI_ALLOCATOR_EVIDENCE.json and Build 19 reproduction instructions.
+
+
+2026-10-23 offline interval audit: four full reported pools plus current FEX/cage
+claims require at least 88 GiB+64 KiB inside a 64 GiB high-band policy, before
+other allocations. This is a current-layout bound, not an iPhone-wide NO-GO.
+Numeric inventory and isolated reserve-only PE are locally validated/compiled;
+no new device or Windows execution. One CoreDevice 4016 availability failure
+left lock state unknown; installed candidate remains Build 19. See
+STEAM_UI_ADDRESS_SPACE.md and STEAM_UI_RESERVATION_PROBE_EVIDENCE.json.

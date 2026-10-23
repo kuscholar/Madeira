@@ -70,6 +70,20 @@ let flsArgs = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundle
 assert(flsArgs == "/c C:\\madeira-fls-probe.cmd")
 let flsBatch = try String(contentsOf: root.appendingPathComponent("drive_c/madeira-fls-probe.cmd"), encoding: .utf8)
 assert(flsBatch.contains("fls-exit=%errorlevel%") && !flsBatch.contains("steam.exe"))
+
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", reservation: true); fatalError("missing reservation probe") } catch {}
+try pe("steam-ui-reservation-probe.exe")
+let reservationPE = root.appendingPathComponent("drive_c/steam-ui-reservation-probe.exe")
+try FileManager.default.moveItem(at: client.appendingPathComponent("steam-ui-reservation-probe.exe"), to: reservationPE)
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.working", reservation: true); fatalError("working app must refuse") } catch {}
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "0", bundleID: "test.steamui", reservation: true); fatalError("flag must be explicit") } catch {}
+let reserveArgs = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", reservation: true)
+assert(reserveArgs == "/c C:\\madeira-reservation-probe.cmd")
+let reserveBatch = try String(contentsOf: root.appendingPathComponent("drive_c/madeira-reservation-probe.cmd"), encoding: .utf8)
+assert(reserveBatch.contains("--isolated-reserve-only") && reserveBatch.contains("reservation-exit=%errorlevel%"))
+assert(reserveBatch.unicodeScalars.filter { $0.value == 13 }.count == 4 && reserveBatch.unicodeScalars.filter { $0.value == 10 }.count == 4)
+assert(!reserveBatch.contains("steam.exe") && !reserveBatch.contains("steam-ui-fls"))
+
 print("PASS: feature flag, app isolation, complete x64 client, fixed command, dimensions, sanitized milestones")
 '''
 info = plistlib.loads((root/'app/Madeira/Info.plist').read_bytes())

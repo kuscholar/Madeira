@@ -14,9 +14,15 @@ enum SteamUIExperiment {
         flag == "1" && bundleID?.hasSuffix(".steamui") == true
     }
     static var enabled: Bool { allowed(flag: MadeiraConfig.get(flag), bundleID: Bundle.main.bundleIdentifier) }
-    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false) throws -> String {
+    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false) throws -> String {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         let drive = prefix.appendingPathComponent("drive_c")
+        if reservation {
+            guard isX64PE(drive.appendingPathComponent("steam-ui-reservation-probe.exe")) else { throw Failure.incompleteProbe }
+            let batch = "@echo off\r\necho reservation-diagnostic-begin > C:\\madeira-reservation-results.txt\r\nC:\\steam-ui-reservation-probe.exe --isolated-reserve-only >> C:\\madeira-reservation-results.txt 2>&1\r\necho reservation-exit=%errorlevel% >> C:\\madeira-reservation-results.txt\r\n"
+            try batch.write(to: drive.appendingPathComponent("madeira-reservation-probe.cmd"), atomically: true, encoding: .utf8)
+            return "/c C:\\madeira-reservation-probe.cmd"
+        }
         if fls {
             guard isX64PE(drive.appendingPathComponent("steam-ui-fls-probe.exe")) else { throw Failure.incompleteProbe }
             let batch = "@echo off\r\necho fls-diagnostic-begin > C:\\madeira-fls-results.txt\r\nC:\\steam-ui-fls-probe.exe >> C:\\madeira-fls-results.txt 2>&1\r\necho fls-exit=%errorlevel% >> C:\\madeira-fls-results.txt\r\n"

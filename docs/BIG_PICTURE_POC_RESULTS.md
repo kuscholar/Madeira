@@ -479,6 +479,76 @@ contract in an isolated reservation test, and determine a disjoint backed layout
 before any new broker patch. Do not restore silent aliasing to make initialization
 appear successful. No interactive login/Big Picture milestone is achieved.
 
+
+## Offline interval audit and reservation probe (2026-10-23 14:53 UTC run)
+
+Phase 1, parent 026dfde456f9b5015ba5d9ab38d3d4dbb14a194f. Origin/remote
+experiment and main match; both working trees are clean at the start. All four
+submodule pins remain those of the architecture audit. No concurrent build or
+device launch was found. One device availability check fails with CoreDevice
+4016: required trusted-connectivity/power assertions unavailable. It does NOT
+establish that Kusch is locked. No install, launch, repeated poll or credential
+operation follows. The installed latest candidate is still Build 19.
+
+Observed failure: Build 19's honest overlap rejection exposes reservation
+capacity failure. Hypothesis: even before furniture, the current high-band
+policy cannot pack all four full advertised pool claims disjointly with its
+existing FEX and cage ranges. Discriminating test: inventory numeric intervals
+from already-hashed Build 18/19 logs, distinguish historical intersections from
+live-view blockers, calculate reservation extent, and prepare an independent
+reserve-only PE contract test before designing a broker.
+
+Evidence: tools/analyze-steam-ui-pools.py extracts only known numeric fields;
+docs/STEAM_UI_POOL_INVENTORY.json records original artifact hashes/line numbers.
+Build 18 has two real pool claims and two soft claims with three historical
+intersections (one is a 64 KiB guard-prefix intersection). Build 19 has two real
+pool claims, zero soft grants and 12 live-view rejections. Lifecycle/releases
+are NOT reconstructed by this parser; historical intersections alone do not
+prove simultaneous ownership. Source definitions and observed boot holds are
+inventoried in docs/STEAM_UI_ADDRESS_SPACE.md.
+
+The full four requests total 64 GiB+128 KiB. Existing FEX (16 GiB) plus cage
+(8 GiB-64 KiB) give at least 88 GiB+64 KiB of disjoint address claims before
+furniture, against a 64 GiB current high-band policy. This invalidates simple
+packing or FEX-shrinking alone under those assumptions; it does not establish
+that genuine UI is impossible on this iPhone. Lower gaps, native capabilities,
+actual backing and allocator-instance lifetimes remain incompletely measured.
+The Social Club partial-backing layout is not automatically applicable to Steam.
+
+Minimal change: offline numeric-only inventory tool, isolated x64 PE
+reservation-ownership probe and a fixed opted-in diagnostic launch route. No
+allocator policy changed this run; strict Build 19 guard retained. Probe makes
+at most four plain/guard-shaped
+MEM_RESERVE/PAGE_NOACCESS calls with explicit opt-in. It never commits, accesses
+or frees their ranges. Distinct results separate overlap (40), capacity gate
+(70), overflow (41), opt-in refusal (64), and four reported disjoint grants (0).
+A 0 result would not prove backing/CEF. Whole isolated Lab termination is required
+afterward because pseudo-process exit can retain mappings.
+
+Validation: actual probe logic passes host API fixtures for all five outcomes
+under ASan/UBSan. It compiles as x86-64 PE with the prepared LLVM-MinGW toolchain.
+Parser tests pass guard-prefix/interior/half-open boundaries, failure filtering,
+redaction and explicit lifecycle limitations. Existing strict-reservation host
+regression also passes. This is NOT a device or Windows control execution;
+Build 20 full unsigned Xcode build and local strict signing PASS. Its final
+Mach-O includes both `madeira-reservation-diagnostics` and
+reject-soft-overlap markers. The original source-farm ARM64EC ntdll was explicitly
+staged into the generated app, replacing the optional CEF observer, and hashed.
+The fixed route uses paired automatic JIT, isolated bundle/flag and fresh-session
+gates, validates x64 PE and writes drive_c/madeira-reservation-results.txt; no
+Steam client is launched. Host policy checks include its explicit opt-in and
+actual CRLF batch. No Build 20 install or device execution is claimed. Compiled
+PE, signed candidate and private availability record are under .madeira-install;
+run artifacts are in steam-ui-pool-inventory-20261023;
+probe/evidence hashes are docs/STEAM_UI_RESERVATION_PROBE_EVIDENCE.json.
+
+Next: install prepared Build 20 when device availability returns, stage the
+compiled PE at the lab drive_c root and use madeira-reservation-diagnostics;
+collect reserve/VirtualQuery result and end the whole Lab. Obtain independent Windows control if available. Then
+measure disjoint native Mach mappings in unprobed gaps using non-overwriting
+requests before any new layout/broker patch. Do not repeat the basic FLS suite,
+re-enable aliases, infer UI success, or assume unavailable means locked.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
@@ -490,12 +560,11 @@ successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
-0. Build 15's FLS-only test is completed and passes; do not rerun it merely
-   because older sections mention locked Build 14. Investigate actual CEF
-   object allocation/release and callback ownership. Narrow atomic, process,
-   chrome_elf import/heap/thread and FLS tests pass, but none validates full
-   Chromium lifetime behavior. Preserve the refcount assertion and use bounded
-   metadata diagnostics, not credential-bearing raw payload traces.
+0. Resume from the interval audit / reserve-only contract test above. Latest
+   installed app remains Build 19; Build 20 is built/signed locally and includes
+   madeira-reservation-diagnostics for the compiled reservation-ownership probe.
+   Check availability once; CoreDevice 4016 did not determine lock state. After contract results,
+   measure disjoint native intervals before attempting a broker/layout change.
 1. Preserve the passing Build 12/13 synthetic results and artifact hashes.
    Obtain an independent Windows control when available; do not claim it ran.
 2. Inventory a full legitimate x64 Steam/CEF set in that prefix; no login cache or

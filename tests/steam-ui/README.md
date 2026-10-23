@@ -372,3 +372,29 @@ exact dual-flag default isolation. Rebuild build/ntdll-unix/build.sh, then the
 full experimental Xcode app. Verify the reject-soft-overlap string in the FINAL
 Mach-O; overlay the unchanged diagnostic PE if desired, then re-sign/install.
 Capture real allocation failure versus refcount assertion as distinct outcomes.
+
+### Offline interval audit and reservation ownership PE
+
+```sh
+python3 tests/host/check-steam-ui-pool-inventory.py
+python3 tools/analyze-steam-ui-pools.py /private/path/build18-log.txt \
+  /private/path/build19-log.txt --output /tmp/pool-inventory.json
+python3 tests/host/check-steam-ui-reservation-probe.py
+"$LLVM_MINGW/bin/x86_64-w64-mingw32-clang" -O2 -static \
+  -Wl,--no-insert-timestamp tests/steam-ui/reservation-ownership.c \
+  -o /tmp/steam-ui-reservation-probe.exe
+```
+
+Run that PE only in a FRESH isolated lab (or independent Windows control) with
+`--isolated-reserve-only`. In Build 20, stage the compiled PE at the lab drive_c
+root and launch a fresh Lab with `madeira-reservation-diagnostics`. The existing
+paired JIT flow runs the fixed batch and writes
+`drive_c/madeira-reservation-results.txt` with reservation-exit. The bundle suffix,
+experimental flag and fresh-session gates still apply; ordinary app launch does
+not run the probe. The existing runtime probe button does not execute this file.
+Do not replace the passing basic probes. Build 20 is only locally prepared;
+installation and actual probe execution remain pending device availability.
+Exit 40 means overlapping grants, 70 means a capacity gate, 0 only means four
+reported intervals are disjoint. No commit/access/free occurs. Terminate the
+whole lab after any outcome; never run it in the working gaming app/session.
+See docs/STEAM_UI_ADDRESS_SPACE.md for the interval arithmetic and limitations.
