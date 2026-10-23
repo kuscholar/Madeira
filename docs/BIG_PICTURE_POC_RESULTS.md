@@ -260,6 +260,26 @@ buttons. Do not count installation or the probe's compilation as a pass. Exact
 artifact hashes and current gate: STEAM_UI_FLS_EVIDENCE.json. No security setting,
 lock bypass, Wine/FEX implementation change or baseline app change occurred.
 
+## Heartbeat state check: 2026-10-23 04:46 UTC
+
+Resumed at experiment commit 1b9016b70df0a95b9329292c4b6a1bff0071ddf5.
+Origin branch matches that exact remote revision; origin/main and the clean
+primary checkout remain ee9fd2f4c21229dfce31a25c211d44df267336d8. No overlapping
+experiment or unrelated local change found. Phase remains real CEF login;
+Build 14 FLS device execution is still pending.
+
+One read-only lock-state check still reports passcodeRequired=true and
+unlockedSinceBoot=true. Evidence: ignored artifact
+.madeira-install/steam-ui-fls-run1/heartbeat-lock.json and heartbeat-lock.log.
+No launch, reinstall, signing retry or runtime modification attempted. Previous
+regression/build results remain unchanged; no new device pass claimed. The
+user already received the unlock request, so no duplicate notification is needed.
+
+The recurring prompt was refreshed from the obsolete Build 9 signing gate to
+the installed Build 14/FLS gate, preserving its 305-minute schedule and target
+thread. Next: after native unlock, run the staged FLS-only diagnostic and collect
+its result file before changing the runtime. No source/build/test result changed.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
