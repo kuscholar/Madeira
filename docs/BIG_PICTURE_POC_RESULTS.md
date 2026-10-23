@@ -354,6 +354,59 @@ stack, before changing lifetime behavior. Reproduce a specific suspected
 condition in an isolated PE/control when possible. Do not repeat the now-passing
 basic FLS test or the locked-device gate. main/baseline app remain untouched.
 
+
+## Build 16: actual CEF FLS ownership trace (2026-10-23)
+
+Phase 1, based on parent `29643eea314284c2d5888f29a3eda73fe441edb9`;
+Wine remains pinned to `9129e9684daaeae70da9435e7c6060e59392634e`.
+Observed failure: real Steam still reaches the chrome_elf +0xd7e3e refcount
+assertion (caller +0x65bb4, recorded offender=0), before interactive login.
+Hypothesis: the CRT PTD destructor could receive a repeated FLS callback.
+Discriminating test: observe alloc/set/callback begin/end, with PID, TID,
+PEB/TEB and pointer identities, during the actual CEF workload. Do not change
+callback ordering or suppress the assertion.
+
+Minimal patch: a separate Wine PE observer patch, gated by BOTH
+MADEIRA_STEAM_UI_SESSION=1 and MADEIRA_STEAM_UI_FLS_TRACE=1; at most 4096
+metadata records per loaded observer instance, no dereferenced payload.
+The pinned original Wine checkout and the primary baseline are unchanged.
+ContentView additionally accepts explicit `madeira-steam-ui-experiment` to
+reuse the already-paired JIT coordinator in the isolated flagged lab.
+
+Validation: host policy/JIT/frontend checks PASS. Observer patch behavior
+comparison and gating/bounds/privacy checks PASS under ASan/UBSan. Full unsigned
+Build 16 PASS; final debug dylib contains the explicit launch marker. The custom
+ARM64EC ntdll has the same 1473 named exports/order as the baseline, was placed
+ONLY in the generated app, and the resulting app was re-signed and passed strict
+verification. Device install and both explicit launch routes succeeded.
+The synthetic FLS test with this actual observer-loaded PE still PASSes
+(thread-exit-once; parent_once=1, wrong_owner=0, child_exit=0, wait=0, exit=0).
+
+Actual CEF trace contains 3821 records; the failing pseudo-process reaches seq
+1301, below the cap. For its FLS index 2, value 0x7800280200: one set at seq60
+by tid012c, then its first recorded thread-exit-begin at seq1301 by the same
+thread, with the same PEB and FLS storage. Callback resolves to
+chrome_elf.dll+0x9c1e0. The refcount assertion occurs inside this callback;
+there is no corresponding end or earlier callback for that value. An adjacent
+thread's different PTD value completes the same callback normally. This argues
+against simple repeated FLS delivery in this run. It does not rule out an earlier
+non-FLS free, an invalid allocation, corruption or a translation defect.
+
+Raw artifacts remain private at `.madeira-install/steam-ui-trace-build16`;
+redacted metadata, exact component hashes and evidence file hashes are in
+`docs/STEAM_UI_FLS_TRACE_EVIDENCE.json`. Two live-file downloads failed with
+CoreDevice socket closure; after terminating only the lab process, the stable
+2.3 MB log downloaded successfully. No app reinstall/restart loop was used.
+The installed PE was not independently read back: final signed bundle hash plus
+actual device observer records establish inclusion, not device byte equivalence.
+Instrumentation changes timing/layout; no Windows control or allocator history
+exists. BrowserReady, interactive login and Big Picture remain unverified.
+
+Next: bounded metadata for chrome_elf CRT PTD allocation/free on this same thread,
+compared with the FIRST FLS callback. Preserve the assertion; do not repeat the
+basic FLS probe without a new instrumentation change. Reproduction is documented
+in tests/steam-ui/README.md. main and the installed working game app are preserved.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build

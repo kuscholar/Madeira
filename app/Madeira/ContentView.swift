@@ -1359,14 +1359,18 @@ struct ContentView: View {
                 // madeira-bcd: the Dock's Reset sets the VC++ markers back to a new prefix's
                 // values, read from the bundled prefix template (DockReset.swift).
                 DockReset.baselineProvider = { DockReset.templateRegistry { madeira_extract_prefix_tgz($0, $1) } }
-                // Explicit developer launch argument; never auto-start Steam.
-                // Reuses the normal paired JIT flow instead of requiring repeated taps.
+                // Explicit developer arguments only; ordinary launch starts nothing.
+                // Reuse the normal paired JIT flow for controlled remote tests.
                 let automaticFLS = ProcessInfo.processInfo.arguments.contains("madeira-fls-diagnostics")
+                let automaticSteamUI = ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-experiment")
                 if SteamUIExperiment.enabled, !automaticProbeRequested,
-                   automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
+                   automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
                     automaticProbeRequested = true
                     DispatchQueue.main.async {
-                        launchAfterJIT = { startSteamUIProbe(fls: automaticFLS) }
+                        launchAfterJIT = {
+                            if automaticSteamUI { startSteamUIExperiment() }
+                            else { startSteamUIProbe(fls: automaticFLS) }
+                        }
                         enableJIT()
                     }
                 }

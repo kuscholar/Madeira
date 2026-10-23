@@ -254,3 +254,58 @@ version and launch route are confirmed by the app log. See
 `docs/STEAM_UI_FLS_EVIDENCE.json` for artifact hashes. Do not repeat this basic
 test as if Build 14 were still awaiting unlock; investigate the real CEF
 allocation/free-callback workload next. Windows control remains unexecuted.
+
+## Bounded real-CEF FLS observer (Build 16)
+
+This is an optional diagnostic PE, not a callback lifetime fix. Apply only to a
+separate worktree of Wine pin 9129e9684daaeae70da9435e7c6060e59392634e.
+Keep the original source farm and the working app untouched. Example from the
+experimental Madeira root, with LLVM_MINGW and a native build toolchain prepared:
+
+```sh
+lab_root="$PWD"
+private_root="$(dirname "$PWD")/.madeira-install"
+git -C wine worktree add --detach "$private_root/wine-fls-trace-src" \
+  9129e9684daaeae70da9435e7c6060e59392634e
+patch -p1 -d "$private_root/wine-fls-trace-src" \
+  < build/wine-pe/steam-ui-fls-trace.patch
+# Wine's relative ../../../../build/madeira_cfg.h include requires this layout.
+# Inspect an existing private_root/build first; never replace existing content.
+ln -s "$lab_root/build" "$private_root/build"
+mkdir -p "$private_root/wine-fls-trace-build"
+cd "$private_root/wine-fls-trace-build"
+PATH="$LLVM_MINGW/bin:$PATH" ../wine-fls-trace-src/configure \
+  --enable-archs=arm64ec --without-x --without-freetype \
+  --disable-tests --enable-winegstreamer
+PATH="$LLVM_MINGW/bin:$PATH" make -j4 dlls/ntdll/arm64ec-windows/ntdll.dll
+```
+
+Copy the resulting PE to a private staging file. Strip with
+`$LLVM_MINGW/bin/arm64ec-w64-mingw32-strip`, then zero-pad to its PE OptionalHeader
+SizeOfImage + 0x50000, matching build/wine-pe/build.sh policy. Compare named
+exports and order with the baseline before use (1473 for this pin). The observed
+Build 16 staged result is 1572864 bytes, SHA256
+76494c640a59389e6285f2d437874a26a45eb9443a8f2855853297f1d515ef2c.
+After the ordinary isolated Xcode build, overlay ONLY the generated app's
+`arm64ec-windows/ntdll.dll`, re-sign the entire lab with its legitimate profiles,
+verify strict signing, and check the final embedded PE hash. This PE diagnostic
+is not in the Mach-O; separately check the final Mach-O explicit-launch marker.
+Never commit the compiled PE, provisioning assets or Valve binaries.
+
+In the isolated lab configuration add `env.MADEIRA_STEAM_UI_FLS_TRACE = 1`.
+The launcher already sets MADEIRA_STEAM_UI_SESSION=1. Both flags are required.
+First use a fresh process with `madeira-fls-diagnostics` to verify the observer
+marker and the regression result. Then a fresh process with
+`madeira-steam-ui-experiment` enables the existing paired JIT flow and launches
+real Steam. Ordinary app launch does not auto-start Steam; credential input is
+never automated. Capture a bounded run, terminate only the lab if it keeps
+retrying, then copy Documents/madeira-log.txt to private storage. Live copy may
+fail while the file is changing. Report this separately from Steam failures.
+
+Host observer check: `python3 tests/host/check-steam-ui-fls-trace.py`.
+This compiles the actual helper with mocked environment/TEB/sink and verifies
+both gates, the 4096 output limit, payload exclusion and unchanged callback code.
+It is not a Windows control. Build 16 actual device observations and hashes:
+`docs/STEAM_UI_FLS_TRACE_EVIDENCE.json`. The first failing PTD callback has no
+previous observed delivery; next investigate allocation/free history, without
+removing Chromium checks or claiming an interactive login.

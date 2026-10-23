@@ -24,3 +24,11 @@ published notes at deezhizyu/madeira 97e2ce2, not a new device run.
 No row marked source/local evidence is a device success claim. The experiment
 has not fixed the three historical fault families. Source-level instrumentation
 and a successful link only make the next test possible.
+
+
+Build 16 actual CEF ownership trace: the failing CRT PTD has one observed set
+and its first callback faults at chrome_elf+0xd7e3e; no earlier FLS delivery for
+that pointer. Synthetic FLS still PASS with observer loaded. This narrows the
+investigation to pre-callback allocation/free/corruption or translation, without
+proving any of them. See STEAM_UI_FLS_TRACE_EVIDENCE.json; interactive CEF remains
+unverified. Callback/refcount behavior was not changed.

@@ -1,0 +1,76 @@
+--- a/dlls/ntdll/thread.c
++++ b/dlls/ntdll/thread.c
+@@ -478,6 +478,37 @@
+ 
+ #define MAX_FLS_DATA_COUNT 0xff0
+ 
++
++/* Steam UI lab: bounded metadata only; never print environment values, paths
++ * or pointed-to content. This observer does not change callback ordering. */
++static void steam_ui_fls_event( const char *event, ULONG index, const void *data,
++                                const void *callback, const void *fls )
++{
++    static LONG enabled, count;
++    TEB *teb = NtCurrentTeb();
++    UNICODE_STRING key, value;
++    WCHAR buffer[2];
++    LONG sequence;
++    if (!teb || !teb->Peb || !teb->Peb->ProcessParameters || !teb->Peb->ProcessParameters->Environment) return;
++    if (!enabled)
++    {
++        value.Buffer = buffer; value.MaximumLength = sizeof(buffer);
++        RtlInitUnicodeString( &key, L"MADEIRA_STEAM_UI_SESSION" );
++        if (RtlQueryEnvironmentVariable_U( teb->Peb->ProcessParameters->Environment, &key, &value ) ||
++            value.Length != sizeof(WCHAR) || buffer[0] != '1') return;
++        RtlInitUnicodeString( &key, L"MADEIRA_STEAM_UI_FLS_TRACE" );
++        if (RtlQueryEnvironmentVariable_U( teb->Peb->ProcessParameters->Environment, &key, &value ) ||
++            value.Length != sizeof(WCHAR) || buffer[0] != '1') return;
++        InterlockedExchange( &enabled, 1 );
++    }
++    sequence = InterlockedIncrement( &count );
++    if (sequence > 4096) return;
++    wine_dbg_printf( "[steam-ui-fls] seq=%ld event=%s pid=%04lx tid=%04lx peb=%p teb=%p index=%lu fls=%p value=%p callback=%p\n",
++                     sequence, event, (ULONG)(ULONG_PTR)teb->ClientId.UniqueProcess,
++                     (ULONG)(ULONG_PTR)teb->ClientId.UniqueThread, teb->Peb, teb,
++                     index, fls, data, callback );
++}
++
+ static void lock_fls_data(void)
+ {
+     RtlEnterCriticalSection( &fls_section );
+@@ -583,6 +614,7 @@
+     if ((*ret_index = fls_index_from_chunk_index( chunk_index, index )) > fls_data.fls_high_index)
+         fls_data.fls_high_index = *ret_index;
+ 
++    steam_ui_fls_event( "alloc", *ret_index, NULL, callback, NULL );
+     unlock_fls_data();
+ 
+     return STATUS_SUCCESS;
+@@ -632,7 +664,9 @@
+                 TRACE_(relay)("Calling FLS callback %p, arg %p.\n", callback,
+                         fls->fls_data_chunks[chunk_index][idx + 1]);
+ 
++                steam_ui_fls_event( "free-index-begin", index, fls->fls_data_chunks[chunk_index][idx + 1], callback, fls );
+                 callback( fls->fls_data_chunks[chunk_index][idx + 1] );
++                steam_ui_fls_event( "free-index-end", index, fls->fls_data_chunks[chunk_index][idx + 1], callback, fls );
+             }
+             fls->fls_data_chunks[chunk_index][idx + 1] = NULL;
+         }
+@@ -668,6 +702,7 @@
+             (fls_chunk_size( chunk_index ) + 1) * sizeof(*fls->fls_data_chunks[chunk_index]) )))
+         return STATUS_NO_MEMORY;
+ 
++    steam_ui_fls_event( "set", index, data, NULL, fls );
+     fls->fls_data_chunks[chunk_index][idx + 1] = data;
+ 
+     return STATUS_SUCCESS;
+@@ -737,7 +772,9 @@
+                     TRACE_(relay)("Calling FLS callback %p, arg %p.\n", callback,
+                             fls->fls_data_chunks[i][index + 1]);
+ 
++                    steam_ui_fls_event( "thread-exit-begin", fls_index_from_chunk_index(i, index), fls->fls_data_chunks[i][index + 1], callback, fls );
+                     callback( fls->fls_data_chunks[i][index + 1] );
++                    steam_ui_fls_event( "thread-exit-end", fls_index_from_chunk_index(i, index), fls->fls_data_chunks[i][index + 1], callback, fls );
+                 }
+                 fls->fls_data_chunks[i][index + 1] = NULL;
+             }
