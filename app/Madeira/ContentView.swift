@@ -1249,6 +1249,7 @@ struct ContentView: View {
     }
     @State private var devSheet: SettingsSheet?
     @State private var steamUIStarting = false
+    @State private var automaticProbeRequested = false
     @StateObject private var logStore = LogStore.shared
     @StateObject private var jitCoordinator = JITCoordinator.shared
     @State private var jitStatus: JITStatus = .unknown
@@ -1358,6 +1359,16 @@ struct ContentView: View {
                 // madeira-bcd: the Dock's Reset sets the VC++ markers back to a new prefix's
                 // values, read from the bundled prefix template (DockReset.swift).
                 DockReset.baselineProvider = { DockReset.templateRegistry { madeira_extract_prefix_tgz($0, $1) } }
+                // Explicit developer launch argument; never auto-start Steam.
+                // Reuses the normal paired JIT flow instead of requiring repeated taps.
+                if SteamUIExperiment.enabled, !automaticProbeRequested,
+                   ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
+                    automaticProbeRequested = true
+                    DispatchQueue.main.async {
+                        launchAfterJIT = { startSteamUIProbe() }
+                        enableJIT()
+                    }
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: SteamSignIn.didChange)) { _ in
                 if !SteamSignIn.isSignedIn { MadeiraDock.cleanup() }
@@ -1692,6 +1703,8 @@ struct ContentView: View {
                 .buttonStyle(.borderedProminent)
 
                 if SteamUIExperiment.enabled {
+                    Button("Runtime Diagnostics") { startSteamUIProbe() }
+                        .buttonStyle(.borderedProminent).tint(.orange).disabled(steamUIStarting)
                     Button("Steam UI Experiment") { startSteamUIExperiment() }
                         .buttonStyle(.borderedProminent).tint(.purple).disabled(steamUIStarting)
                 }
@@ -3502,6 +3515,24 @@ struct ContentView: View {
     /// start.exe. That wrapper's teardown is what killed services.exe's RPC
     /// listener in every broken run (ml579/580/584/585) and took the Start menu
     /// with it; launching directly also keeps cmd+conhost alive for the session.
+    private func startSteamUIProbe() {
+        guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
+              wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
+            logStore.log("[steam-ui-probe] launch refused: fresh isolated JIT session required", level: .error)
+            return
+        }
+        let prefix = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("wine")
+        do {
+            let args = try SteamUIExperiment.prepareProbe(prefix: prefix, flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier)
+            steamUIStarting = true
+            setenv("MADEIRA_EXE", "cmd.exe", 1)
+            setenv("MADEIRA_ARGS", args, 1)
+            unsetenv("MADEIRA_DESKTOP")
+            logStore.log("[steam-ui-probe] begin synthetic atomic and process tests; no Steam client")
+            runWineFullSequence(steamUI: true)
+        } catch { logStore.log("[steam-ui-probe] " + error.localizedDescription, level: .error) }
+    }
+
     private func startSteamUIExperiment() {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {

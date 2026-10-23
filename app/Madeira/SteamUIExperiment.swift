@@ -14,6 +14,23 @@ enum SteamUIExperiment {
         flag == "1" && bundleID?.hasSuffix(".steamui") == true
     }
     static var enabled: Bool { allowed(flag: MadeiraConfig.get(flag), bundleID: Bundle.main.bundleIdentifier) }
+    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?) throws -> String {
+        guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
+        let drive = prefix.appendingPathComponent("drive_c")
+        guard ["steam-ui-atomic-probe.exe", "steam-ui-process-probe.exe"].allSatisfy({ isX64PE(drive.appendingPathComponent($0)) })
+        else { throw Failure.incompleteProbe }
+        let elfProbe = "Program Files (x86)/Steam/bin/cef/cef.win64/madeira-chrome-elf-probe.exe"
+        guard isX64PE(drive.appendingPathComponent(elfProbe)) else { throw Failure.incompleteProbe }
+        let lines = ["@echo off", "echo diagnostic-begin > C:\\madeira-probe-results.txt",
+            "C:\\steam-ui-atomic-probe.exe >> C:\\madeira-probe-results.txt 2>&1",
+            "echo atomic-exit=%errorlevel% >> C:\\madeira-probe-results.txt",
+            "C:\\steam-ui-process-probe.exe >> C:\\madeira-probe-results.txt 2>&1",
+            "echo process-exit=%errorlevel% >> C:\\madeira-probe-results.txt",
+            "\"C:\\\(elfProbe.replacingOccurrences(of: "/", with: "\\"))\" >> C:\\madeira-probe-results.txt 2>&1",
+            "echo elf-exit=%errorlevel% >> C:\\madeira-probe-results.txt"]
+        try (lines.joined(separator: "\r\n") + "\r\n").write(to: drive.appendingPathComponent("madeira-runtime-probes.cmd"), atomically: true, encoding: .utf8)
+        return "/c C:\\madeira-runtime-probes.cmd"
+    }
     struct Plan {
         let windowsDirectory: String
         let width: Int
@@ -27,11 +44,12 @@ enum SteamUIExperiment {
         var arguments: String { "/desktop=steamui,\(width)x\(height) cmd /c C:\\madeira-steam-ui.cmd" }
     }
     enum Failure: LocalizedError {
-        case disabled, incompleteClient, invalidSize
+        case disabled, incompleteClient, incompleteProbe, invalidSize
         var errorDescription: String? {
             switch self {
             case .disabled: return "Steam UI requires the experimental .steamui app and its feature flag."
             case .incompleteClient: return "A complete 64-bit Windows Steam client, steamwebhelper and libcef are required in this experimental app's own prefix."
+            case .incompleteProbe: return "All x64 runtime probes must be present in the experimental app's own drive_c and matching CEF directory."
             case .invalidSize: return "Unsupported experimental desktop size."
             }
         }

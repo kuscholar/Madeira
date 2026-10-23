@@ -51,6 +51,19 @@ try FileManager.default.moveItem(at: outside, to: dll)
 do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1, height: 648, flag: "1", bundleID: "test.steamui"); fatalError("invalid size") } catch {}
 assert(SteamUIExperiment.milestones(in: "arbitrary account=PRIVATE token=SECRET").isEmpty)
 assert(SteamUIExperiment.milestones(in: "ChromeMainDelegate payload=PRIVATE BrowserReady SECRET") == ["cef-initialization-reported", "browser-ready-reported"])
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: nil, bundleID: "test.steamui"); fatalError("disabled probe") } catch {}
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui"); fatalError("missing probes") } catch {}
+for name in ["steam-ui-atomic-probe.exe", "steam-ui-process-probe.exe"] {
+    try pe(name)
+    try FileManager.default.moveItem(at: client.appendingPathComponent(name), to: root.appendingPathComponent("drive_c/"+name))
+}
+try pe("bin/cef/cef.win64/madeira-chrome-elf-probe.exe")
+let probeArgs = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui")
+assert(probeArgs == "/c C:\\madeira-runtime-probes.cmd")
+let probeBatch = try String(contentsOf: root.appendingPathComponent("drive_c/madeira-runtime-probes.cmd"), encoding: .utf8)
+assert(probeBatch.contains("echo atomic-exit=%errorlevel%") && probeBatch.contains("echo process-exit=%errorlevel%"))
+assert(!probeBatch.contains("steam.exe") && !probeBatch.contains("steamwebhelper"))
+assert(probeBatch.contains("echo elf-exit=%errorlevel%"))
 print("PASS: feature flag, app isolation, complete x64 client, fixed command, dimensions, sanitized milestones")
 '''
 info = plistlib.loads((root/'app/Madeira/Info.plist').read_bytes())

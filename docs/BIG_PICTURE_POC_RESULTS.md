@@ -1,7 +1,7 @@
 # Genuine Steam UI PoC results
 
 Updated 2026-10-22. Current phase: Phase 0 complete; Phase 1 controlled launcher
-implemented and exercised; first CEF load failed due to JIT pool capacity. Build 10 rejected fixed secondary preparation and later exhausted image space. Build 11 tests existing region C, pending execution. Main remains
+implemented and exercised; first CEF load failed due to JIT pool capacity. Build 10 rejected fixed secondary preparation and later exhausted image space. Build 11 validated region C but hit a chrome_elf refcount assertion before pool exhaustion. Build 13 isolated diagnostics pass; real CEF login remains blocked. Main remains
 the playable Build 8 baseline. This document is the recurring task's resume point.
 
 ## What has actually been established
@@ -52,8 +52,9 @@ commands are recorded in STEAM_UI_LOCAL_EVIDENCE.json and the reproducibility gu
 The source/worktree dependency reuse is described in tests/steam-ui/README.md.
 
 The synthetic x86-64 CreateProcess/shared-map/child-exit diagnostic was compiled
-and its AMD64 PE headers/imports inspected. It has NOT been executed on Windows
-or iOS. Do not count this as a passing pseudo-process integration test.
+and its AMD64 PE headers/imports inspected in the initial local-only milestone.
+It subsequently passed on device in Build 12/13, recorded below; Windows
+control is still unavailable.
 
 ## Actual device gate (updated after Xcode account sign-in)
 
@@ -177,6 +178,65 @@ Build 11 compiled, passed strict signature verification, and was installed and
 launched. Region-C execution remains pending. This experiment
 still has no interactive login, authentication, Big Picture or controller result.
 
+## Experiment 4: capacity confirmed, first failure is a refcount assertion
+
+Build 11 / source bbcd7ce accepted region C (352 MiB, matching RX/RW alias),
+624+256 = 880 MiB in A/B, and actual FEX EC_CODE carves in C. The main image
+pool's code tail reservation stayed zero. This validates this run's capacity
+mechanism; it does not guarantee the same A/B sizes under another address slide.
+
+The first helper still raised 0x80000003 at chrome_elf.dll+0xd7e3e. The existing
+brp-contain diagnostic reports offender=0 and caller=chrome_elf+0x65bb4.
+The first assertion is at log line 14776 (zero based); first EXHAUSTED is 17529.
+Later automatic helper restarts fragment/exhaust the pool. Do not mistake this
+secondary exhaustion for the cause of the first assertion.
+
+The actual device chrome_elf.dll was read back: SHA-256 matches the downloaded
+binary (6358830f96f36efa7516b3277cf69c1f132f97d4d93c365ccf061a7cf11e1e39).
+Offline disassembly confirms a locked cmpxchg clear-bit loop in the caller,
+which branches to a helper recording the fixed string refcount, then executes
+int3/int3/ud2. The refcount is not held by the allocator at that check (zero in
+the saved diagnostic). The stack includes a non-null-pointer free callback at
+chrome_elf+0x9c1e0 and ntdll teardown. This is a lifetime/FLS lead, NOT proof of
+an incorrect atomic, a Wine double-free or a FEX defect. Do not remove the check.
+This resembles the historical chrome_elf assertion family; it is not the
+historical libcef+0x41258FB KERN_MEMORY_ERROR signature.
+
+## Experiments 5 and 6: actual device diagnostic results
+
+Build 12 added an isolated orange Runtime Diagnostics route. It requires the
+experimental app/flag, fresh JIT session and x64 test executables. Fixed batch
+commands redirect stdout and exit codes to drive_c/madeira-probe-results.txt;
+no Steam client, login or credentials are involved. The user started this run:
+
+- Atomic probe: 4 threads, 200,000 successful shared-counter increments, plus
+  failed CAS result/ZF and private clear-held-bit CAS checks; failures=0, exit=0.
+- Process probe: CreateProcess, named shared mapping, child write, parent wait
+  and child exit all pass: wait=0 child_exit=0 shared_match=1, exit=0.
+
+Build 13 added a PE importing the user's matching official chrome_elf.dll. It
+ran beside that DLL, reached entry/GetHandleVerifier, and completed four rounds
+of four worker threads with Win32/CRT heap writes/frees and teardown: failures=0,
+exit=0. Atomic and process tests passed again in that run. The DLL is not embedded
+in the probe or committed. Source, import definition and build commands are in
+tests/steam-ui. This covers import/heap/thread plumbing; it does NOT reproduce
+all CEF allocator or FLS lifetimes, so a pass cannot exonerate those generally.
+
+Build 13 also accepts the explicit developer launch argument
+madeira-runtime-diagnostics only when the Steam UI isolation flag is enabled.
+It reuses the existing paired JIT coordinator and starts only these diagnostics.
+The remote launch successfully enabled built-in JIT and completed the tests
+without another phone tap. Ordinary app launch and real Steam launch do not
+change. The baseline app/main were not changed. Future controlled diagnostics
+can use this path while pairing/VPN/device availability remain valid.
+
+Host launch/isolation/privacy tests, JIT-method and frontend checks pass. The
+x86-64 PE files and actual final signed Mach-O were inspected/hashed. A macOS
+x86-64 control compiled but could not execute (Bad CPU type); no Windows
+control was available. Device passes are real, narrow results, not a general
+emulator/allocator correctness claim. See STEAM_UI_RUN3_EVIDENCE.json for hashes
+and exact output categories. The user still has no working real Steam login UI.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
@@ -188,12 +248,15 @@ successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
-0. Collect Build 11 region-C RX/RW acceptance, pool sizes/tail usage, and
-   libglesv2/CEF startup evidence. Build 10 rejected exact preparation; do not
-   retry that path or attribute ASLR capacity changes to it.
-1. With the isolated app now provisioned and installed, run the synthetic PE in the
-   separate app/prefix and record child exit plus shared-match, with Windows
-   control if available. Record exact installed Mach-O hashes.
+0. Investigate the actual zero-refcount/free-callback path with FLS lifetime and
+   per-pseudo-process ownership evidence. The exact atomic sequence, process
+   shared map and basic official chrome_elf import/heap/thread tests passed.
+   They do not cover the full Chromium allocator. Do not repeat blind Steam
+   restarts, add capacity without evidence or disable the assertion. Next
+   discriminators should target callback multiplicity/ownership and metadata
+   lifetime, with an isolated PE/control before runtime changes where possible.
+1. Preserve the passing Build 12/13 synthetic results and artifact hashes.
+   Obtain an independent Windows control when available; do not claim it ran.
 2. Inventory a full legitimate x64 Steam/CEF set in that prefix; no login cache or
    arbitrary client flags. Launch the login-only route. Capture native role
    lifecycle, CEF initialization, BrowserReady, window creation, screenshots and

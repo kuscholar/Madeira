@@ -35,7 +35,9 @@ own child, waits 15 seconds, checks child exit and shared-memory content. Pass:
 `steam-ui-process-probe wait=0 child_exit=0 shared_match=1`, process exit 0.
 Nonzero is a test failure, not proof of a particular Wine/FEX defect. No child is
 forcibly terminated on timeout. Keep the experiment separate from a game session.
-The PE was compiled and inspected locally; Windows/iPhone execution is pending.
+The PE was compiled and inspected locally, and passed on Kusch in Build 12
+and Build 13 (wait=0, child_exit=0, shared_match=1). Windows control execution
+remains unavailable. Evidence: docs/STEAM_UI_RUN3_EVIDENCE.json.
 This is a process-plumbing test, not a Skia raster test or CEF simulation.
 
 ## Build and activate the real-client experiment
@@ -171,3 +173,49 @@ Require accepted region-C RX/RW mappings, main-pool tail consumption and
 libglesv2/import results from the next device run. The JIT badge now remains
 green after intentional debugger detach when a pool was successfully prepared;
 it does not imply CEF rendering or game success.
+
+
+## Atomic and actual chrome_elf import diagnostics (Build 13)
+
+Build synthetic probes outside Git (no Valve DLL is redistributed):
+
+```sh
+"$LLVM_MINGW/bin/x86_64-w64-mingw32-clang" -O2 -static \
+  -Wl,--no-insert-timestamp tests/steam-ui/atomic-refcount.c \
+  -o /tmp/steam-ui-atomic-probe.exe
+"$LLVM_MINGW/bin/x86_64-w64-mingw32-dlltool" \
+  -d tests/steam-ui/chrome-elf.def -l /tmp/madeira-chrome-elf.lib
+"$LLVM_MINGW/bin/x86_64-w64-mingw32-clang" -O2 -static \
+  -Wl,--no-insert-timestamp tests/steam-ui/chrome-elf-heap.c \
+  /tmp/madeira-chrome-elf.lib -o /tmp/madeira-chrome-elf-probe.exe
+```
+
+Place atomic and process probes at the experiment's drive_c root. Place
+madeira-chrome-elf-probe.exe beside the matching official chrome_elf.dll in
+Program Files (x86)/Steam/bin/cef/cef.win64. The import definition only names
+GetHandleVerifier, not implementation code. Keep the official DLL unchanged.
+
+In a fresh JIT-enabled session press orange Runtime Diagnostics. It runs all
+three tests once, recording stdout/stderr and exit codes in
+Documents/wine/drive_c/madeira-probe-results.txt. No Steam exe is launched.
+Alternatively, for a connected, unlocked device with pairing/VPN already set up,
+use the explicit app argument to reuse the existing JIT coordinator:
+
+```sh
+xcrun devicectl device process launch --device YOUR_DEVICE_ID \
+  com.kuschqin.madeira.steamui madeira-runtime-diagnostics
+```
+
+Start a fresh process; a previous Wine session cannot run again. The developer
+argument is gated by both the experimental bundle/flag and a once-only UI state.
+It does not install pairing material, bypass consent, or auto-run Steam. Missing
+pairing/VPN/debugger still fails through the existing setup flow. Do not assume
+future availability merely because the Build 13 device run succeeded.
+
+Observed on Kusch: atomic failures=0/counter=200000, process shared_match=1 and
+child_exit=0, elf import/verifier plus four thread rounds with failures=0. All
+three exit codes are zero. This rules out only these simple test failures. It
+does NOT exercise all PA allocations, the exact CEF destructor order, software
+rasterization or authenticated Steam UI. A macOS x86-64 build of the atomic
+control could not execute (Bad CPU type); no Windows control was available.
+Never describe these passes as a working Steam login or general FEX correctness.
