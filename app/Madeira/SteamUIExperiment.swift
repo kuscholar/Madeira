@@ -5,6 +5,7 @@ import Foundation
 // Experimental genuine Windows Steam UI. No Dock token transfer and no UI replica.
 enum SteamUIExperiment {
     static let flag = "env.MADEIRA_EXPERIMENTAL_STEAM_UI"
+    static let bigPictureFlag = "env.MADEIRA_EXPERIMENTAL_BIG_PICTURE"
     static let sessionKey = "MADEIRA_STEAM_UI_SESSION"
     static func callbackScheme(bundleID: String?) -> String {
         bundleID?.hasSuffix(".steamui") == true ? "madeira-steamui" : "madeira"
@@ -54,10 +55,11 @@ enum SteamUIExperiment {
         let windowsDirectory: String
         let width: Int
         let height: Int
+        let bigPicture: Bool
         var batch: String {
             ["@echo off", "start \"\" \"C:\\windows\\system32\\services.exe\"",
              "cd /d \"\(windowsDirectory)\"",
-             "\"\(windowsDirectory)\\steam.exe\" -no-cef-sandbox -cef-disable-gpu -nocrashmonitor"]
+             "\"\(windowsDirectory)\\steam.exe\" -no-cef-sandbox -cef-disable-gpu -nocrashmonitor\(bigPicture ? " -bigpicture" : "")"]
                 .joined(separator: "\r\n") + "\r\n"
         }
         var arguments: String { "/desktop=steamui,\(width)x\(height) cmd /c C:\\madeira-steam-ui.cmd" }
@@ -98,8 +100,9 @@ enum SteamUIExperiment {
         try FileManager.default.copyItem(at: source, to: temporary)
         try FileManager.default.moveItem(at: temporary, to: target)
     }
-    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?, x86Client: Bool = false) throws -> Plan {
+    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?, x86Client: Bool = false, bigPicture: Bool = false, bigPictureFlag: String? = nil) throws -> Plan {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
+        guard !bigPicture || bigPictureFlag == "1" else { throw Failure.disabled }
         guard (640...3840).contains(width), (360...2160).contains(height) else { throw Failure.invalidSize }
         let drive = prefix.appendingPathComponent("drive_c")
         for relative in (x86Client ? ["Steam32BundleLab", "Steam32Lab"] : ["Program Files (x86)/Steam", "Program Files/Steam"]) {
@@ -112,7 +115,7 @@ enum SteamUIExperiment {
                 return isPE(cef.appendingPathComponent("steamwebhelper.exe"), machine: x86Client ? 0x014c : 0x8664) && isPE(cef.appendingPathComponent("libcef.dll"), machine: x86Client ? 0x014c : 0x8664)
             }
             guard hasCEF else { continue }
-            let plan = Plan(windowsDirectory: "C:\\" + relative.replacingOccurrences(of: "/", with: "\\"), width: width, height: height)
+            let plan = Plan(windowsDirectory: "C:\\" + relative.replacingOccurrences(of: "/", with: "\\"), width: width, height: height, bigPicture: bigPicture)
             try plan.batch.write(to: drive.appendingPathComponent("madeira-steam-ui.cmd"), atomically: true, encoding: .utf8)
             return plan
         }
@@ -136,7 +139,7 @@ final class SteamUIEvidence {
     private var ticks = 0
     private var firstPresent: UInt64 = 0
     private var sawRunning = false
-    func start(prefix: URL) {
+    func start(prefix: URL, bigPicture: Bool = false) {
         timer?.invalidate(); offsets = [:]; reported = []; ticks = 0; sawRunning = false
         firstPresent = winios_surface_present_count()
         for base in ["Program Files (x86)/Steam", "Program Files/Steam", "Steam32Lab", "Steam32BundleLab"] {
@@ -146,7 +149,7 @@ final class SteamUIEvidence {
                 offsets[url] = size
             }
         }
-        LogStore.shared.log("[steam-ui] experiment-begin login-only; evidence excludes credential payloads")
+        LogStore.shared.log(bigPicture ? "[steam-ui] experiment-begin genuine Big Picture; evidence excludes credential payloads" : "[steam-ui] experiment-begin login-only; evidence excludes credential payloads")
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }

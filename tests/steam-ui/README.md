@@ -533,3 +533,16 @@ Rebuilding win32u requires prepared FreeType include/library resources under
 build/freetype-ios/build. A missing-library warning is not an acceptable final
 UI build; verify FreeType in the final image. Do not stage private resources or
 local symlinks into Git.
+
+
+### Build28 genuine Big Picture direct-start discriminator
+
+After interactive real CEF/authentication has been demonstrated, the isolated
+lab supports config `env.MADEIRA_EXPERIMENTAL_BIG_PICTURE = 1` and explicit launch
+argument `madeira-steam-big-picture-x86-experiment`. Both the original SteamUI
+flag and .steamui bundle restriction still apply. This mode adds only official
+`-bigpicture` to the existing genuine Steam command; the default launch stays
+login-only. Preserve the existing prefix to test legitimate account persistence.
+Compare with the observed desktop-to-Big-Picture loading stall, without changing
+other options or patching Valve code. Require actual navigation/library/game
+results; a startup background, BrowserReady or a successful build is insufficient.

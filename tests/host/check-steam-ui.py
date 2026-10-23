@@ -77,6 +77,15 @@ let preservedText = try String(contentsOf: sentinel, encoding: .utf8)
 assert(preservedText == "preserve")
 let importedPlan = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true)
 assert(importedPlan.windowsDirectory == "C:\\Steam32BundleLab")
+for disabledBigPictureFlag: String? in [nil, "0", "true"] {
+ do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true, bigPicture: true, bigPictureFlag: disabledBigPictureFlag); fatalError("Big Picture must be explicitly gated") } catch {}
+}
+let big = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true, bigPicture: true, bigPictureFlag: "1")
+assert(big.batch.contains(" -bigpicture") && big.batch.components(separatedBy: " -bigpicture").count == 2)
+let ordinaryWithFlag = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true, bigPictureFlag: "1")
+assert(!ordinaryWithFlag.batch.contains("-bigpicture"))
+do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.working", x86Client: true, bigPicture: true, bigPictureFlag: "1"); fatalError("working app forbidden") } catch {}
+
 
 do { _ = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.working", x86Client: true); fatalError("working app refused") } catch {}
 assert(SteamUIExperiment.milestones(in: "arbitrary account=PRIVATE token=SECRET").isEmpty)

@@ -1372,7 +1372,8 @@ struct ContentView: View {
                 let automaticNativeVM = ProcessInfo.processInfo.arguments.contains("madeira-native-vm-diagnostics")
                 let automaticReservation = ProcessInfo.processInfo.arguments.contains("madeira-reservation-diagnostics")
                 let automaticFLS = ProcessInfo.processInfo.arguments.contains("madeira-fls-diagnostics")
-                let automaticX86Client = ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-x86-experiment")
+                let automaticBigPicture = ProcessInfo.processInfo.arguments.contains("madeira-steam-big-picture-x86-experiment")
+                let automaticX86Client = automaticBigPicture || ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-x86-experiment")
                 let automaticSteamUI = automaticX86Client || ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-experiment")
                 if SteamUIExperiment.enabled, !automaticProbeRequested,
                    automaticX86CEF || automaticNativeVM || automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
@@ -1380,7 +1381,7 @@ struct ContentView: View {
                     DispatchQueue.main.async {
                         launchAfterJIT = {
                             if automaticNativeVM { startSteamUINativeVMProbe() }
-                            else if automaticSteamUI { startSteamUIExperiment(x86Client: automaticX86Client) }
+                            else if automaticSteamUI { startSteamUIExperiment(x86Client: automaticX86Client, bigPicture: automaticBigPicture) }
                             else { startSteamUIProbe(fls: automaticFLS, reservation: automaticReservation, x86CEF: automaticX86CEF) }
                         }
                         enableJIT()
@@ -3563,7 +3564,7 @@ struct ContentView: View {
         } catch { logStore.log("[steam-ui-probe] " + error.localizedDescription, level: .error) }
     }
 
-    private func startSteamUIExperiment(x86Client: Bool = false) {
+    private func startSteamUIExperiment(x86Client: Bool = false, bigPicture: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
             logStore.log("[steam-ui] launch refused: isolated experimental app, JIT and a fresh session are required", level: .error)
@@ -3579,7 +3580,8 @@ struct ContentView: View {
                     flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier)
             }
             let plan = try SteamUIExperiment.prepare(prefix: prefix, width: size.0, height: size.1,
-                flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, x86Client: x86Client)
+                flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, x86Client: x86Client, bigPicture: bigPicture,
+                bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag))
             steamUIStarting = true
             Task { @MainActor in
                 await SteamOwnedLibrary.shared.prepareDock() // close competing native CM connection; no token transfer
@@ -3596,7 +3598,7 @@ struct ContentView: View {
                 setenv("MADEIRA_SCREEN_H", String(plan.height), 1)
                 setenv("MADEIRA_JITLESS", "1", 1)
                 winios_display_mode_changed(Int32(plan.width), Int32(plan.height))
-                SteamUIEvidence.shared.start(prefix: prefix)
+                SteamUIEvidence.shared.start(prefix: prefix, bigPicture: bigPicture)
                 runWineFullSequence(steamUI: true)
             }
         } catch { logStore.log("[steam-ui] " + error.localizedDescription, level: .error) }

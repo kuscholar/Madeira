@@ -939,3 +939,81 @@ is now supported by the user report plus visible real Steam login/BrowserReady
 from the preceding runs; successful authentication/library/Big Picture/game
 launch remain separate uncompleted gates. Preserve the installed Build27 for
 user sign-in; no additional build is needed just to log in.
+
+
+## Build27 authenticated Steam library observed
+
+After user keyboard/Steam Guard interaction, a fresh Device Hub observation of
+the still-preserved session showed Valve's genuine desktop Steam game library,
+account UI and populated game list. No account identifier or library screenshot
+is published. This is direct visual evidence of authenticated real-client UI,
+beyond the earlier login-only rendering and USER-REPORTED text entry. Account
+persistence across a new session is not tested, and Big Picture/controller/game
+launch are not inferred from the library view.
+
+Remote pointer attempts at the Steam Big Picture entry had no visible effect,
+as with the preceding software-keyboard toggle. Device Hub remote input was
+observed moving a pointer without a successful click in the guest. Madeira's
+existing iPhone mouse hint requires AssistiveTouch. User was asked to enable
+Settings > Accessibility > Touch > AssistiveTouch before further direct mouse
+tests. No accessibility setting was changed by the agent, no credential entered,
+and no authenticated session restart/reinstall was attempted.
+
+Next: after remote pointer interaction works, enter Valve's actual Big Picture
+from its own client, capture navigation/render evidence, then test a separately
+flagged launcher and Bluetooth input. Existing installed game discovery and
+launch/return remain separate gates. Overall PoC remains incomplete.
+
+
+## Phase3 first genuine Big Picture transition / Build28 discriminator
+
+User reports AssistiveTouch enabled and manual entry into Big Picture; actual
+Device Hub observation shows Valve's real Big Picture startup background and
+loading indicator, remaining unchanged across several minutes. The native PID
+14195 was independently confirmed alive. Valve logs record new BrowserReady and
+controller-UI initialization events. No Big Picture navigation/library success
+is claimed. CEF warnings include invalid browser dimensions0x0 and unsupported
+FFmpeg pixel format-1, but their causal role is NOT established; an earlier
+browser-info response timeout predates this transition. Official staged JS/assets
+were inspected read-only; no Valve files were patched. Source deck/movie assets
+do not establish what the currently visible loading component is.
+
+Discriminating hypothesis: transition from desktop in this single-process/shared
+CEF context may behave differently from starting directly in Big Picture. Build28
+adds an explicit madeira-steam-big-picture-x86-experiment argument plus
+MADEIRA_EXPERIMENTAL_BIG_PICTURE=1 configuration gate, in addition to the existing
+SteamUI/.steamui gate. It adds only Valve's genuine -bigpicture to the otherwise
+identical fixed launch command. Default login-only mode remains unchanged.
+Host production Swift checks cover missing/false flags, wrong bundle, opt-in
+command and ordinary-mode preservation. Full build passed; final Mach-O entry,
+flag, keyboard-route marker and FreeType verified. Deep strict signing passed.
+PID14195 was ended and absence verified before installation. Same authenticated
+prefix/data is preserved; no auth cache is exported or replaced. Installation and actual direct-start completed; see results below. Private artifacts: steam-ui-big-picture-build28/;
+redacted evidence: STEAM_UI_BIG_PICTURE_EVIDENCE.json.
+
+
+### Build28 actual-device direct-start result
+
+Installed Build28 into the isolated lab bundle, preserving its authenticated
+prefix. Official Steam startup confirms `forcing gamepadui`, with `-bigpicture`
+in its bootstrap command. The guest view remains black; direct startup has NOT
+resolved the transition hang. No Big Picture navigation or game launch is claimed.
+
+A bounded, strictly serial suspend/copy/SIGCONT sequence acquired the native log
+and resumed the same lab process (PID14452). Three crashpad child traps share
+guest PC0x6df3def3. Actual per-process module records place libcef at0x6aeb0000;
+RVA0x308def3 matches an on-disk INT3 followed by UD2 in the exact device-readback
+CEF. These are deliberate fatal traps, not evidence that their reported host
+KERN_INVALID_ADDRESS is a guest memory-mapping failure. The precise assertion
+and caller remain unknown. Two later browser logs say crash server did not
+respond and self-terminate. This establishes a concrete failure chain to inspect,
+not sole causation for every Big Picture hang. Separate native protection faults
+read guest offset0xffffffff; saved guest PC maps to an NtReleaseKeyedEvent return
+stub, which may be stale across the native syscall boundary.
+
+No assertion, memory protection, FEX or Valve binary was changed. Redacted hashes
+and exact scope are in STEAM_UI_BIG_PICTURE_EVIDENCE.json; raw logs stay private.
+Next discriminator: identify the fatal caller/failed crashpad contract, reproduce
+that contract in an isolated i386 test, and distinguish cleanup faults from the
+initial browser failure. Bluetooth, usable Big Picture and game launch/return
+remain unverified. Main/working gaming baseline remains untouched.
