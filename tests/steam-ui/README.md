@@ -229,8 +229,10 @@ Never describe these passes as a working Steam login or general FEX correctness.
   -o /tmp/steam-ui-fls-probe.exe
 ```
 
-Place this x64 PE at the experimental drive_c root. Start a fresh lab process
-with argument `madeira-fls-diagnostics`; the existing paired JIT coordinator
+Place this x64 PE at the experimental drive_c root. In Build 15, open a fresh
+Steam UI Lab, press Enable JIT, then the orange FLS Diagnostics button.
+Alternatively start a fresh lab process with argument `madeira-fls-diagnostics`;
+the existing paired JIT coordinator
 runs the single synthetic test and writes `drive_c/madeira-fls-results.txt`.
 It never starts Steam. The normal orange diagnostic route remains unchanged.
 

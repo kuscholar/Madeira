@@ -1704,6 +1704,8 @@ struct ContentView: View {
                 .buttonStyle(.borderedProminent)
 
                 if SteamUIExperiment.enabled {
+                    Button("FLS Diagnostics") { startSteamUIProbe(fls: true) }
+                        .buttonStyle(.borderedProminent).tint(.orange).disabled(steamUIStarting)
                     Button("Runtime Diagnostics") { startSteamUIProbe() }
                         .buttonStyle(.borderedProminent).tint(.orange).disabled(steamUIStarting)
                     Button("Steam UI Experiment") { startSteamUIExperiment() }

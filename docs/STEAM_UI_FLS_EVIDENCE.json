@@ -26,5 +26,20 @@
     "frontend": "PASS"
   },
   "device_execution": "PENDING",
-  "limitations": "No Windows control run. A passing synthetic test cannot validate the full CEF allocator or all callback lifetimes."
+  "limitations": "No Windows control run. A passing synthetic test cannot validate the full CEF allocator or all callback lifetimes.",
+  "manual_candidate": {
+    "build": "15",
+    "bundle_id": "com.kuschqin.madeira.steamui",
+    "purpose": "Explicit manual FLS Diagnostics button; same probe and runtime as Build 14",
+    "linked_debug_dylib": {
+      "bytes": 66051776,
+      "sha256": "c60f1f6fa8808f6cd74a7da01da83b350f89c29ed38af235608d6e10863a8c50"
+    },
+    "final_link_marker": "FLS Diagnostics",
+    "device_execution": "PENDING user manual test",
+    "signature": "codesign --verify --deep --strict passed",
+    "initial_install_attempt": "Connection interrupted (IXRemoteErrorDomain 6); actual device state being rechecked",
+    "install": "PASS on single retry after initial connection interruption",
+    "probe_readback": "PASS: actual device probe SHA256 matches recorded 72260078b2d188b1db78c625cf5170a72eb9466fa14f25b2bde6e9435af861b9"
+  }
 }

@@ -302,6 +302,30 @@ unlock, followed by result-file and private-log capture. Do not claim a runtime
 fix, remove the refcount check, or start another CEF retry while this test is
 unexecuted. No further build/tests warranted for this documentation-only update.
 
+## Manual test handoff candidate (Build 15)
+
+The user asked to operate the test manually. Build 15 adds an explicit orange
+FLS Diagnostics button to the isolated developer interface; it calls the same
+FLS-only route as the Build 14 command-line argument. Ordinary manual launch
+does not auto-run diagnostics or Steam. Probe/runtime code and previous
+validation results are unchanged.
+
+The full iOS build succeeded; strict signing verification passed and the
+FLS Diagnostics marker was checked in the final linked debug dylib. Hash is
+recorded in STEAM_UI_FLS_EVIDENCE.json under manual_candidate. This two-line
+UI addition required no new runtime tests; it has no new device execution claim.
+Initial install failed with IXRemoteErrorDomain 6 / Connection interrupted;
+the subsequent app-list query timed out after 15 seconds. A single install
+retry then succeeded (install-retry.json/log). The actual device probe was read
+back and its SHA-256 matched the recorded Build 14 PE. Build 15 is installed,
+with manual execution still pending; no FLS result is inferred from installation.
+The prepared Build 14/probe state must not be erased to work around the link.
+
+Verified-install handoff: open Steam UI Lab, Enable JIT, then orange FLS
+Diagnostics; collect madeira-fls-results.txt and private device log. Do not
+instruct the user to start full Steam or the earlier three-test Runtime
+Diagnostics route for this discriminator. Working baseline remains untouched.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
