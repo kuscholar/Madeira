@@ -51,3 +51,13 @@ Numeric inventory and isolated reserve-only PE are locally validated/compiled;
 no new device or Windows execution. One CoreDevice 4016 availability failure
 left lock state unknown; installed candidate remains Build 19. See
 STEAM_UI_ADDRESS_SPACE.md and STEAM_UI_RESERVATION_PROBE_EVIDENCE.json.
+
+
+Builds 20/21 actual Kusch tests: reserve-only PE returns two distinct MEM_RESERVE
+intervals then NULL/error487/exit70. The new pre-Wine native probe completes all
+62 fixed no-overwrite PROT_NONE requests: only four high-band aligned bases
+succeed (both sizes), 27 lower bases fail kr3 with existing native map context;
+all created mappings and query ports released. This confirms a current-layout
+capacity gate, not interactive CEF or a device-wide impossibility result.
+See STEAM_UI_NATIVE_VM_EVIDENCE.json. Installed candidate is Build 21; previous
+4016 and pending Build 20 gates are obsolete.

@@ -549,22 +549,92 @@ measure disjoint native Mach mappings in unprobed gaps using non-overwriting
 requests before any new layout/broker patch. Do not repeat the basic FLS suite,
 re-enable aliases, infer UI success, or assume unavailable means locked.
 
+
+## Builds 20/21: direct Kusch reservation and native capability tests
+
+User explicitly requested direct phone testing. Phase 1, source parent
+8225668ef16692dd087abf79ba26a7e6cd1428cc; submodule pins unchanged. Fork
+remote/branch and prepared Build 20/probe hashes were verified. Fresh device
+check now succeeds, passcodeRequired=false. The earlier CoreDevice 4016 gate is
+obsolete. No credential automation or manual button request was needed.
+
+Observed failure/hypothesis: strict CEF startup could be failing due to Wine
+placement policy or because lower native slots are already occupied. First
+separate the allocation contract from Steam; then test native mappings before
+Wine/FEX bootstrap, with current-region context, before proposing a layout fix.
+
+Build 20 device test: signed bundle installs; automatic paired JIT succeeds.
+The x64 reserve-only PE grants 0x7800000000+0x400000000, then
+0x73ffff0000+0x400010000. VirtualQuery confirms both as MEM_RESERVE (0x2000).
+The third 16 GiB request returns NULL, Win32 error 487; the probe classifies
+CAPACITY_GATE and exits 70. Two live-view overlap candidates are rejected.
+This is not a Windows ERROR_NOT_ENOUGH_MEMORY claim: error 487 and the probe's
+capacity category are recorded separately. Whole lab PID was terminated after
+collecting results, releasing the intentionally retained guest reservations.
+See updated STEAM_UI_RESERVATION_PROBE_EVIDENCE.json and private raw files
+.madeira-install/steam-ui-reservation-run20/.
+
+Minimal new diagnostic: Build 21 explicit madeira-native-vm-diagnostics argument
+uses the paired JIT flow, but never starts Wine/FEX. It requires isolated bundle,
+experimental flag, live debugger and a fresh session. Using SDK-declared 64-bit
+vm_map/vm_deallocate and vm_region_64, it tries 64 KiB and 16 GiB PROT_NONE/NONE
+mappings at each nonzero 16 GiB boundary from 16 to 496 GiB (62 requests).
+VM_FLAGS_FIXED without OVERWRITE preserves existing mappings. Only successful
+own mappings are deallocated, immediately; queried object-name ports are also
+released. Failed cleanup or an unexpected returned address stops the sweep.
+The first compile used unsupported iOS mach_vm.h; it was replaced with public
+SDK interfaces and 64-bit size assertions, then the full build succeeded.
+
+Build 21 host fixture passes ASan/UBSan: 62 requests, fixed/no-overwrite/NONE
+protections, no release after failed allocation, null/non-null query-port
+cleanup, early stop for mapping/port cleanup failure and unexpected address.
+Policy/JIT/frontend checks PASS. Final Mach-O contains launch/probe/strict-guard
+markers; deep strict signing and isolated device install PASS. Actual device
+log confirms version21, automatic JIT enabled and native entry completed code0;
+there is no Wine bootstrap in this run.
+
+Native device result: 8 successful requests and 54 failures (all kr=3).
+Both sizes succeed only at 0x7000000000, 0x7400000000, 0x7800000000 and
+0x7c00000000. All successful mappings and query ports are cleaned up (code0).
+Lower samples query existing native regions: [0x2ea000000,0xfc0000000),
+protection1, and [0x1000000000,0x7000000000), protection0. Ownership/backing of
+these pre-existing ranges is NOT established; do not unmap or re-protect them.
+This is stronger than a Wine-only slot-walk failure, but is a pre-Wine app
+snapshot, not a bare-kernel guarantee. It does not exclude smaller/unaligned
+holes or prove simultaneous packability/committed/JIT-executable capacity.
+
+Redacted numeric samples: docs/STEAM_UI_NATIVE_VM_SAMPLES.csv; component and raw
+artifact hashes/limits: docs/STEAM_UI_NATIVE_VM_EVIDENCE.json. Private raw data:
+.madeira-install/steam-ui-native-vm-build21/. Only the lab process was terminated
+after collection; main at ee9fd2f and working game's app/data remain unchanged.
+No new allocator behavior, assertion suppression or foreign-map reclamation.
+
+Assessment: NO-GO for simply packing the four full aligned pool claims plus
+existing FEX/cage into the measured high band. No interactive Steam login or
+Big Picture success. Global feasibility remains UNDETERMINED: next identify
+the genuine client's four request roles, allocator instances, exact alignment
+and lifetime contracts before testing a correct demand-reduction/ownership
+model. Do not repeat this grid, blindly shrink requested reservations, apply
+the Social Club partial-backing path, or restore overlapping soft grants.
+
 ## Assessment
 
 GO to continue the controlled Phase 1 experiment: architecture and local build
 support a real-client test without rewriting the engine. NO-GO for claiming a
 working Big Picture PoC or distributing this experiment as usable. Technical
-feasibility on this device remains UNDETERMINED until runtime evidence exists.
+feasibility on this device remains UNDETERMINED: a correct nonoverlapping
+CEF memory model and interactive login have not been demonstrated. The current
+four-full-pool high-band model is NO-GO based on Builds 20/21.
 Do not infer impossibility from a missing signing account, or success from a
 successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
-0. Resume from the interval audit / reserve-only contract test above. Latest
-   installed app remains Build 19; Build 20 is built/signed locally and includes
-   madeira-reservation-diagnostics for the compiled reservation-ownership probe.
-   Check availability once; CoreDevice 4016 did not determine lock state. After contract results,
-   measure disjoint native intervals before attempting a broker/layout change.
+0. Build 20 reserve-only contract test and Build 21 native grid are COMPLETED
+   on Kusch; do not repeat them or the obsolete 4016 gate. Installed latest
+   candidate is Build 21. Read native VM evidence/samples, then attribute the
+   four actual CEF requests and their alignment/allocator/lifetime contracts
+   before changing a layout or broker. Preserve strict overlap rejection.
 1. Preserve the passing Build 12/13 synthetic results and artifact hashes.
    Obtain an independent Windows control when available; do not claim it ran.
 2. Inventory a full legitimate x64 Steam/CEF set in that prefix; no login cache or

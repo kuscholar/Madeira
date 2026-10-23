@@ -2125,3 +2125,19 @@ void madeira_memory_canary(const char *tmpdir) {
     }
     fprintf(stderr, "[mem-canary] ml1076 done\n");
 }
+
+/* Explicit isolated native capability test; no Wine/FEX bootstrap or allocation
+ * policy change. Normal application launch never calls this entry. */
+#include "JITAllocator.h"
+#include "../../build/diagnostics/steam_ui_vm_probe.h"
+int madeira_steam_ui_vm_probe_run(const char *path)
+{
+    if (![[NSBundle mainBundle].bundleIdentifier hasSuffix:@".steamui"] ||
+        ![[NSProcessInfo processInfo].arguments containsObject:@"madeira-native-vm-diagnostics"] ||
+        !jit_check_debugged() || wine_process_is_running() || wineserver_is_running()) return -1;
+    FILE *out = fopen(path, "w");
+    if (!out) return -2;
+    int result = madeira_steam_ui_vm_probe(out);
+    if (fclose(out)) return -3;
+    return result;
+}

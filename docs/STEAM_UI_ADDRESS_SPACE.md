@@ -93,3 +93,19 @@ only mappings the test actually creates. A broker/layout patch requires evidence
 of distinct ownership, reported-vs-backed boundaries, commit denial on foreign
 ranges, release/process-lifetime semantics and full final Mach-O verification.
 Keep strict rejection on; do not achieve startup by reintroducing soft aliases.
+
+
+## Subsequent actual device validation (Builds 20/21)
+
+The earlier 4016 gate is resolved. Build 20 directly confirms two MEM_RESERVE
+intervals then a third-request failure (Win32 487, probe category/exit70).
+Build 21's fresh pre-Wine/JIT-enabled native sweep confirms only the four high
+16 GiB-aligned slots accept either 64 KiB or full 16 GiB mappings; all 27 lower
+sampled boundaries fail kr3 and query existing native mappings. The native
+probe's 8 successful requests and all queried object ports are released.
+These are individually measured capacities, not simultaneous full CEF ownership.
+Full results: STEAM_UI_NATIVE_VM_EVIDENCE.json / STEAM_UI_NATIVE_VM_SAMPLES.csv.
+Do not identify the lower mappings' owner or reclaim them from these data.
+Current full-pool/FEX/cage packing remains NO-GO; overall feasibility is open.
+Next test must attribute request roles/contracts or a correct reduced-demand
+model, not repeat the same address grid or silently alias independent owners.

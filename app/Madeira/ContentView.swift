@@ -1361,15 +1361,17 @@ struct ContentView: View {
                 DockReset.baselineProvider = { DockReset.templateRegistry { madeira_extract_prefix_tgz($0, $1) } }
                 // Explicit developer arguments only; ordinary launch starts nothing.
                 // Reuse the normal paired JIT flow for controlled remote tests.
+                let automaticNativeVM = ProcessInfo.processInfo.arguments.contains("madeira-native-vm-diagnostics")
                 let automaticReservation = ProcessInfo.processInfo.arguments.contains("madeira-reservation-diagnostics")
                 let automaticFLS = ProcessInfo.processInfo.arguments.contains("madeira-fls-diagnostics")
                 let automaticSteamUI = ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-experiment")
                 if SteamUIExperiment.enabled, !automaticProbeRequested,
-                   automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
+                   automaticNativeVM || automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
                     automaticProbeRequested = true
                     DispatchQueue.main.async {
                         launchAfterJIT = {
-                            if automaticSteamUI { startSteamUIExperiment() }
+                            if automaticNativeVM { startSteamUINativeVMProbe() }
+                            else if automaticSteamUI { startSteamUIExperiment() }
                             else { startSteamUIProbe(fls: automaticFLS, reservation: automaticReservation) }
                         }
                         enableJIT()
@@ -3523,6 +3525,17 @@ struct ContentView: View {
     /// start.exe. That wrapper's teardown is what killed services.exe's RPC
     /// listener in every broken run (ml579/580/584/585) and took the Start menu
     /// with it; launching directly also keeps cmd+conhost alive for the session.
+    private func startSteamUINativeVMProbe() {
+        guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
+              wineserver_is_running() == 0, !StikJITHelper.poolTaken else { return }
+        steamUIStarting = true
+        let resultFile = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("steam-ui-native-vm-results.txt")
+        logStore.log("[native-vm] begin pre-Wine fixed PROT_NONE capability test; no overwrite or memory access")
+        let result = resultFile.path.withCString { madeira_steam_ui_vm_probe_run($0) }
+        logStore.log("[native-vm] completed code=\(result); see steam-ui-native-vm-results.txt; no CEF validation")
+    }
+
     private func startSteamUIProbe(fls: Bool = false, reservation: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {

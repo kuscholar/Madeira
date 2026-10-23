@@ -11,6 +11,9 @@ extern "C" {
 // Returns 0 on success, -1 on error.
 int wine_process_start(const char *prefix_path);
 
+// Explicit pre-Wine native VM capability diagnostics for isolated Steam UI Lab.
+int madeira_steam_ui_vm_probe_run(const char *result_path);
+
 // Check if Wine process is running
 int wine_process_is_running(void);
 

@@ -398,3 +398,30 @@ Exit 40 means overlapping grants, 70 means a capacity gate, 0 only means four
 reported intervals are disjoint. No commit/access/free occurs. Terminate the
 whole lab after any outcome; never run it in the working gaming app/session.
 See docs/STEAM_UI_ADDRESS_SPACE.md for the interval arithmetic and limitations.
+
+### Native mapping capability discriminator (Build 21)
+
+Launch a fresh isolated Steam UI Lab with `madeira-native-vm-diagnostics`.
+The same paired automatic JIT flow runs before the native probe; Wine/FEX is
+not bootstrapped. Isolated bundle/feature flag, live debugger and fresh-session
+checks apply. Copy Documents/steam-ui-native-vm-results.txt and the private app
+log, then terminate only the lab process. No credentials or Steam files needed.
+
+The public SDK's LP64 vm_map/vm_deallocate API is used because iOS rejects direct
+inclusion of mach_vm.h. Compile-time assertions require 64-bit address/size.
+The native header makes exactly 62 fixed PROT_NONE/NONE no-overwrite requests:
+64 KiB and 16 GiB at every nonzero 16 GiB boundary below 512 GiB. It queries each
+current native region, releases returned object-name ports, and deallocates
+ONLY its own successful mappings immediately. Failed cleanup or a returned
+address mismatch stops the run. No memory contents or foreign mappings are
+accessed/modified. A zero completion code means sweep completed, not that every
+mapping worked. Successful independent spans do not prove simultaneous capacity,
+backing/commit access or CEF/JIT-execution capability.
+
+`python3 tests/host/check-steam-ui-native-vm.py` tests the exact native header
+under ASan/UBSan with Mach API fixtures, including successful/failed mapping,
+cleanup/port failure and unexpected address. This is not an OS control.
+Build 21 actual Kusch result: 8 successes at four high-band bases (both sizes),
+54 failures kr3, no cleanup failures; see numeric CSV and hashed evidence in
+docs/STEAM_UI_NATIVE_VM_EVIDENCE.json. Do not repeat this grid or unmap the
+pre-existing lower regions; next attribute CEF's exact pool requests/contracts.
