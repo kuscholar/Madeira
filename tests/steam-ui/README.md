@@ -102,5 +102,47 @@ This is a process-plumbing test, not a Skia raster test or CEF simulation.
 
 Local build note: the audited experiment reused unchanged baseline FEX/DXMT,
 crypto/media/pairing archives and optional i386 resources, and rebuilt ntdll.
-It was not a clean-machine dependency rebuild. Its unsigned bundle links; it
-cannot be installed using the working app's unmatched profiles.
+It was not a clean-machine dependency rebuild. The independent app and helper
+were subsequently provisioned through Xcode, signed, installed and launched.
+CEF and guest-probe execution remain pending; installation does not validate them.
+
+
+## Stage the public full client reproducibly
+
+This branch defaults to the owner's independent `com.kuschqin.madeira.steamui`
+ID/team and displays Steam UI Lab. For your own device override
+`MADEIRA_BUNDLE_IDENTIFIER` (retain `.steamui`) and `DEVELOPMENT_TEAM`; provision
+both app and helper through Xcode. Its registered callback scheme is
+`madeira-steamui`, distinct from the working app.
+
+The existing Dock-only runtime lacks CEF. Do not copy its account directory.
+Fetch the complete matching public package set into a NEW local staging folder:
+
+```sh
+python3 tools/fetch-steam-ui-client.py \
+  --manifest tests/steam-ui/manifests/steam_client_win64_1792618285.vdf \
+  --cache /path/outside-git/steam-packages \
+  --output /path/outside-git/Steam
+```
+
+The tool selects the standard steamrow bootstrap, verifies each package's
+size/SHA-256 against the explicitly saved HTTPS manifest, refuses path traversal
+and symlink ZIP entries, and emits a full local inventory beside the output.
+It does not independently validate Valve's manifest signatures. Keep packages
+and output outside Git; the output must not already exist. Do not point it at a
+live installation. Steam authentication/licensing remain Steam's responsibility.
+
+Copy this new Steam directory only to the experimental app's
+`Documents/wine/drive_c/Program Files (x86)/Steam`, using the normal device file
+service. For a developer-only first run, also set `env.MADEIRA_ONBOARDING = 0`
+in the experiment's cfg, so Dock's setup downloader does not replace this
+separate full client. No pairing files or account caches need be copied.
+The synthetic probe belongs at `Documents/wine/drive_c/steam-ui-process-probe.exe`;
+copying it there does not execute it. Normal manual library/desktop launching
+can be used for this diagnostic in a separate session.
+
+Experimental CEF policy now overrides inherited VLOG with warning severity and
+suppresses command-tail echoes. Raw Steam logs must stay app-private. The
+categorical observer can miss initialization messages at this severity; missing
+markers remain inconclusive. Interactive pixels and device crash evidence are
+still required before declaring the login milestone.

@@ -2,10 +2,14 @@
 """Compile production launch policy with synthetic PE headers; never contacts Steam."""
 from pathlib import Path
 import subprocess, tempfile, os
+import plistlib
 root = Path(__file__).resolve().parents[2]
 src = (root / 'app/Madeira/SteamUIExperiment.swift').read_text()
 policy = src[src.index('enum SteamUIExperiment {'):src.index('\n@MainActor\nfinal class SteamUIEvidence')]
 main = r'''
+assert(SteamUIExperiment.callbackScheme(bundleID: "com.kuschqin.madeira.steamui") == "madeira-steamui")
+assert(SteamUIExperiment.callbackScheme(bundleID: "com.kuschqin.madeira.d7kzkwd692") == "madeira")
+assert(SteamUIExperiment.callbackScheme(bundleID: nil) == "madeira")
 let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
 try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 defer { try? FileManager.default.removeItem(at: root) }
@@ -49,6 +53,12 @@ assert(SteamUIExperiment.milestones(in: "arbitrary account=PRIVATE token=SECRET"
 assert(SteamUIExperiment.milestones(in: "ChromeMainDelegate payload=PRIVATE BrowserReady SECRET") == ["cef-initialization-reported", "browser-ready-reported"])
 print("PASS: feature flag, app isolation, complete x64 client, fixed command, dimensions, sanitized milestones")
 '''
+info = plistlib.loads((root/'app/Madeira/Info.plist').read_bytes())
+assert info['CFBundleURLTypes'][0]['CFBundleURLSchemes'] == ['madeira-steamui']
+network = (root/'app/Madeira/JITNetwork.swift').read_text()
+assert all('SteamUIExperiment.callbackScheme)://jit-network/'+x in network for x in ('success','error','cancel'))
+assert 'url.scheme == SteamUIExperiment.callbackScheme' in network
+assert 'localdevvpn://enable?scheme=\\(SteamUIExperiment.callbackScheme)' in (root/'app/Madeira/JITSetup.swift').read_text()
 with tempfile.TemporaryDirectory() as td:
     td=Path(td); swift=td/'main.swift'
     swift.write_text('import Foundation\nenum MadeiraConfig { static func get(_ key: String) -> String? { nil } }\n'+policy+main)

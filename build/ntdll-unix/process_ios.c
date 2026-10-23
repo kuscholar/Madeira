@@ -1856,6 +1856,15 @@ NTSTATUS WINAPI NtCreateUserProcess( HANDLE *process_handle_ptr, HANDLE *thread_
                 const char *jl = getenv( "MADEIRA_JITLESS" );
                 int jitless_on = !(jl && jl[0] == '0');
                 const char *sp = jitless_on ? sp_jitless : sp_jit;
+                /* The isolated experiment observes categorical readiness only.
+                 * Do not enable Chromium VLOG or echo an inherited command tail
+                 * around real account authentication. Keep ordinary launches as-is. */
+                const char *ui = getenv( "MADEIRA_STEAM_UI_SESSION" );
+                int steam_ui = ui && !strcmp( ui, "1" );
+                if (steam_ui)
+                    sp = jitless_on
+                         ? " --single-process --enable-logging=file --v=0 --log-severity=warning --no-proxy-server --winhttp-proxy-resolver --js-flags=--jitless"
+                         : " --single-process --enable-logging=file --v=0 --log-severity=warning --no-proxy-server --winhttp-proxy-resolver";
                 dprintf(2, "[proc-gate] V8 %s (MADEIRA_JITLESS=%s) rev=ml526\n",
                         jitless_on ? "JITLESS (interpreted)" : "JIT ENABLED — #82 retest",
                         jl ? jl : "unset");
@@ -1910,7 +1919,9 @@ NTSTATUS WINAPI NtCreateUserProcess( HANDLE *process_handle_ptr, HANDLE *thread_
                     params->CommandLine.Buffer = nbuf;
                     params->CommandLine.Length = o * sizeof(WCHAR);
                     params->CommandLine.MaximumLength = params->CommandLine.Length + sizeof(WCHAR);
-                    dprintf(2, "[proc-gate] steamwebhelper: injected --single-process + CEF verbosity"
+                    if (steam_ui)
+                        dprintf(2, "[steam-ui-process] cef-policy single-process=1 verbose=0 jitless=%d feature-splice=%d\n", jitless_on, bl != 0);
+                    else dprintf(2, "[proc-gate] steamwebhelper: injected --single-process + CEF verbosity"
                                " + no-proxy + jitless (switch experiments concluded ml509-ml511);"
                                " BRP+segmentation-disable %s (ml426)\n",
                             bl ? "SPLICED into Steam's existing --disable-features list"
@@ -1924,6 +1935,7 @@ NTSTATUS WINAPI NtCreateUserProcess( HANDLE *process_handle_ptr, HANDLE *thread_
                      * jitless experiment's first run was VOIDED by that gap —
                      * every injected-arg experiment from now on is proven by
                      * this line, not by binary greps or Valve's log. */
+                    if (!steam_ui)
                     {
                         char tail[136];
                         int tstart = o > 128 ? o - 128 : 0, ti;

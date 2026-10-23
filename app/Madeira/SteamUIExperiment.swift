@@ -6,6 +6,10 @@ import Foundation
 enum SteamUIExperiment {
     static let flag = "env.MADEIRA_EXPERIMENTAL_STEAM_UI"
     static let sessionKey = "MADEIRA_STEAM_UI_SESSION"
+    static func callbackScheme(bundleID: String?) -> String {
+        bundleID?.hasSuffix(".steamui") == true ? "madeira-steamui" : "madeira"
+    }
+    static var callbackScheme: String { callbackScheme(bundleID: Bundle.main.bundleIdentifier) }
     static func allowed(flag: String?, bundleID: String?) -> Bool {
         flag == "1" && bundleID?.hasSuffix(".steamui") == true
     }

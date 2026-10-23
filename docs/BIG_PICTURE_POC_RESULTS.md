@@ -1,7 +1,7 @@
 # Genuine Steam UI PoC results
 
 Updated 2026-10-22. Current phase: Phase 0 complete; Phase 1 controlled launcher
-implemented and locally built, physical-device validation pending. Main remains
+implemented, signed, installed and started; CEF execution validation pending. Main remains
 the playable Build 8 baseline. This document is the recurring task's resume point.
 
 ## What has actually been established
@@ -55,20 +55,45 @@ The synthetic x86-64 CreateProcess/shared-map/child-exit diagnostic was compiled
 and its AMD64 PE headers/imports inspected. It has NOT been executed on Windows
 or iOS. Do not count this as a passing pseudo-process integration test.
 
-## Actual device gate
+## Actual device gate (updated after Xcode account sign-in)
 
-No new experiment was installed and no Steam login was attempted. Existing
-profiles do not match the isolated .steamui app/extension. An official Xcode
-`-allowProvisioningUpdates` build failed with No Accounts and No profiles for
-both bundle IDs. User was asked to log into Xcode Settings > Accounts; no
-credential entry or provisioning bypass was attempted. Continue verifiable local
-work while waiting. The working application's files, installed data and main
-branch were not changed.
+Official Xcode UI provisioning generated matching isolated app and helper
+profiles. Code signatures and embedded profile IDs were checked, and final
+Build 9 was successfully installed and launched as Steam UI Lab. Its unique
+`madeira-steamui` scheme also receives LocalDevVPN and Shortcuts callbacks,
+so the working Madeira app does not receive the experiment's JIT callbacks.
+The first installation was rejected by the free-profile three-app limit. The
+user chose to back up/remove LongDine themselves; subsequent device inventory
+no longer showed it and installation succeeded. No app was uninstalled by us.
+Main and the original Madeira app/data remain unchanged.
 
-A complete legitimate matching Steam/CEF tree in the experiment's OWN prefix is
-also required. Do not substitute the baseline's sign-in cache. Human Steam Guard
-completion is required if Valve requests it. No claimed networking, pixel,
-controller, login, Big Picture, library, persistence or game-return validation.
+An on-device startup log confirms `v0.1.3 (9)`, developer interface from config,
+and increased-memory-limit granted. `allow-jit` and extended-VA were false at
+startup; the existing debugger workflow is still required. A launch is NOT a
+CEF or JIT success. The user has been asked to enable JIT and press the new
+Steam UI Experiment button; runtime/interaction results are pending.
+
+Read-only inventory showed the working headless client's bin directory had no
+CEF tree. It was not used as a full-client source. Instead, 18 matching public
+Valve win64 packages from saved manifest version 1792618285 were fetched over
+HTTPS and checked against every listed size and SHA-256. The staged set has
+6,558 files, 829,728,769 expanded bytes. Core binaries have AMD64 PE headers.
+Manifest signatures were NOT independently verified. See
+STEAM_UI_CLIENT_EVIDENCE.json and the saved manifest. No client binaries or
+account caches are committed. The complete client and synthetic PE were copied
+into the isolated app's prefix; device file inventory confirms webhelper and
+libcef presence, but device file hashes have not been independently read back.
+Valve's updater can subsequently change these resources; re-inventory after a run.
+
+Before authentication, an inherited logging issue was found: the existing
+webhelper path forced Chromium VLOG and echoed the inherited command tail.
+The experimental-session-only policy now uses warning-level logging and a fixed
+categorical policy event instead. Ordinary launches retain their existing
+behavior. The native archive was rebuilt and the final linked Mach-O checked.
+Steam's own logs remain app-private; the evidence observer never exports raw
+lines. Human Steam Guard completion is required if Valve requests it. No claimed
+networking, pixel, controller, login, Big Picture, library, persistence or
+game-return validation yet. The synthetic PE is staged but NOT executed.
 
 ## Assessment
 
@@ -81,7 +106,7 @@ successful build. The three historical failure families remain untested here.
 
 ## Next discriminating experiments
 
-1. After official isolated provisioning is available, run the synthetic PE in the
+1. With the isolated app now provisioned and installed, run the synthetic PE in the
    separate app/prefix and record child exit plus shared-match, with Windows
    control if available. Record exact installed Mach-O hashes.
 2. Inventory a full legitimate x64 Steam/CEF set in that prefix; no login cache or

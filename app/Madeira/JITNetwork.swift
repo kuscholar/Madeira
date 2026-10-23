@@ -291,9 +291,9 @@ enum JITShortcutFile {
             URLQueryItem(name: "name", value: Self.name),
             URLQueryItem(name: "input", value: "text"),
             URLQueryItem(name: "text", value: input),
-            URLQueryItem(name: "x-success", value: "madeira://jit-network/success"),
-            URLQueryItem(name: "x-error", value: "madeira://jit-network/error"),
-            URLQueryItem(name: "x-cancel", value: "madeira://jit-network/cancel")
+            URLQueryItem(name: "x-success", value: "\(SteamUIExperiment.callbackScheme)://jit-network/success"),
+            URLQueryItem(name: "x-error", value: "\(SteamUIExperiment.callbackScheme)://jit-network/error"),
+            URLQueryItem(name: "x-cancel", value: "\(SteamUIExperiment.callbackScheme)://jit-network/cancel")
         ]
         guard let url = c.url else { completion(.failed("bad shortcut URL")); return }
         LogStore.shared.log("[jit-shortcut] run input=\(input)")
@@ -309,7 +309,7 @@ enum JITShortcutFile {
     /// madeira://jit-network/{success|error|cancel}, from Shortcuts' x-callback-url.
     @discardableResult
     func handle(_ url: URL) -> Bool {
-        guard url.scheme == "madeira", url.host == "jit-network" else { return false }
+        guard url.scheme == SteamUIExperiment.callbackScheme, url.host == "jit-network" else { return false }
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let value = { (name: String) in query.first { $0.name == name }?.value ?? "" }
         switch url.path {
