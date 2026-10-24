@@ -67,11 +67,12 @@ enum SteamUIExperiment {
         let width: Int
         let height: Int
         let bigPicture: Bool
+        var accountChooser = false
         var batch: String {
             ["@echo off", "start \"\" \"C:\\windows\\system32\\services.exe\"",
              "if exist C:\\ideck-control.exe start \"\" C:\\ideck-control.exe",
              "cd /d \"\(windowsDirectory)\"",
-             "\"\(windowsDirectory)\\steam.exe\" -no-cef-sandbox -cef-disable-gpu -nocrashmonitor\(bigPicture ? " -bigpicture" : "")"]
+             "\"\(windowsDirectory)\\steam.exe\" -no-cef-sandbox -cef-disable-gpu -nocrashmonitor\(bigPicture ? " -bigpicture" : "")\(accountChooser ? " steam://changeuser" : "")"]
                 .joined(separator: "\r\n") + "\r\n"
         }
         var arguments: String { "/desktop=steamui,\(width)x\(height) cmd /c C:\\madeira-steam-ui.cmd" }
@@ -112,7 +113,7 @@ enum SteamUIExperiment {
         try FileManager.default.copyItem(at: source, to: temporary)
         try FileManager.default.moveItem(at: temporary, to: target)
     }
-    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?, x86Client: Bool = false, bigPicture: Bool = false, bigPictureFlag: String? = nil) throws -> Plan {
+    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?, x86Client: Bool = false, bigPicture: Bool = false, bigPictureFlag: String? = nil, accountChooser: Bool = false) throws -> Plan {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         guard !bigPicture || bigPictureFlag == "1" else { throw Failure.disabled }
         guard (640...3840).contains(width), (360...2160).contains(height) else { throw Failure.invalidSize }
@@ -127,7 +128,7 @@ enum SteamUIExperiment {
                 return isPE(cef.appendingPathComponent("steamwebhelper.exe"), machine: x86Client ? 0x014c : 0x8664) && isPE(cef.appendingPathComponent("libcef.dll"), machine: x86Client ? 0x014c : 0x8664)
             }
             guard hasCEF else { continue }
-            let plan = Plan(windowsDirectory: "C:\\" + relative.replacingOccurrences(of: "/", with: "\\"), width: width, height: height, bigPicture: bigPicture)
+            let plan = Plan(windowsDirectory: "C:\\" + relative.replacingOccurrences(of: "/", with: "\\"), width: width, height: height, bigPicture: bigPicture, accountChooser: accountChooser)
             try plan.batch.write(to: drive.appendingPathComponent("madeira-steam-ui.cmd"), atomically: true, encoding: .utf8)
             return plan
         }
@@ -230,6 +231,14 @@ import UIKit
 
 @MainActor final class IDeckState: ObservableObject {
     static let shared = IDeckState()
+    private init() {
+        // Present the new account entry once; subsequent auto-start remains opt-in.
+        if !UserDefaults.standard.bool(forKey: "iDeckAccountLauncherV1") {
+            autoStart = false
+            UserDefaults.standard.set(false, forKey: "iDeckAutoStart")
+            UserDefaults.standard.set(true, forKey: "iDeckAccountLauncherV1")
+        }
+    }
     static var enabled: Bool {
         SteamUIExperiment.enabled && MadeiraConfig.flag("MADEIRA_IDECK", fallback: Bundle.main.object(forInfoDictionaryKey: "IDeckEnabled") as? Bool == true)
     }
@@ -352,6 +361,7 @@ import UIKit
 
 struct IDeckLauncher: View {
     let start: () -> Void
+    let account: () -> Void
     let setupJIT: () -> Void
     let diagnostics: () -> Void
     @ObservedObject private var state = IDeckState.shared
@@ -362,6 +372,7 @@ struct IDeckLauncher: View {
         case 0: if !state.ready { state.prepare() }
         case 1: setupJIT()
         case 2: if state.ready && !jit.busy { start() }
+        case 3: if state.ready && !jit.busy { account() }
         default: state.autoStart.toggle()
         }
     }
@@ -398,6 +409,13 @@ struct IDeckLauncher: View {
                     Label(jit.busy ? "Enabling JIT…" : "Launch Steam Big Picture", systemImage: "play.fill")
                         .font(.headline).frame(maxWidth: .infinity).padding(12)
                 }.buttonStyle(.borderedProminent).disabled(!state.ready || state.preparing || jit.busy)
+                GroupBox("Steam account") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Sign in or choose another account in Steam’s own account screen. Big Picture uses that same Steam session. iDeck does not store your password.")
+                        Button("Sign in / Change Steam account", action: account)
+                            .buttonStyle(.bordered).disabled(!state.ready || state.preparing || jit.busy)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
                 Toggle("Open Big Picture automatically next time", isOn: $state.autoStart)
                 if let error = state.error { Text(error).foregroundStyle(.orange) }
                 Text("Connect a controller, or tap directly on Steam. The floating iDeck button opens the keyboard, virtual controller and options.").foregroundStyle(.secondary)
@@ -413,11 +431,11 @@ struct IDeckLauncher: View {
         .onDisappear { LibraryController.shared.configure(enabled: true, ownsInput: false) }
         .onReceive(LibraryController.shared.commands) { command in
             if command == "up" { selection = max(0, selection - 1) }
-            if command == "down" { selection = min(3, selection + 1) }
+            if command == "down" { selection = min(4, selection + 1) }
             if command == "accept" { accept() }
         }
         .overlay(alignment: .bottom) {
-            Text(["Controller: Prepare runtime", "Controller: Pairing & JIT", "Controller: Launch Big Picture", "Controller: Auto-start"][selection])
+            Text(["Controller: Prepare runtime", "Controller: Pairing & JIT", "Controller: Launch Big Picture", "Controller: Steam account", "Controller: Auto-start"][selection])
                 .font(.caption).padding(8).background(.regularMaterial, in: Capsule()).padding(8)
         }
     }
@@ -427,14 +445,13 @@ struct IDeckHUD: View {
     @ObservedObject private var state = IDeckState.shared
     @ObservedObject private var controls = TouchControlsModel.shared
     @State private var showSettings = false
-    @State private var confirmAccount = false
     @State private var confirmExit = false
     @State private var selection = 0
     @State private var dragBase: CGPoint?
     @State private var drag = CGSize.zero
     @AppStorage("iDeckHUDx") private var savedX = -1.0
     @AppStorage("iDeckHUDy") private var savedY = -1.0
-    private let labels=["Keyboard","Virtual controller","Arrange controls","Steam menu","Exit game → Steam","Change Steam account","Auto-start","Settings","Done"]
+    private let labels=["Keyboard","Virtual controller","Arrange controls","Steam menu","Exit game → Steam","Auto-start","Settings","Done"]
     private func keyboard() { state.menu=false;MetalBackedView.toggleKeyboard() }
     private func activate() {
         switch selection {
@@ -443,9 +460,8 @@ struct IDeckHUD: View {
         case 2: controls.visible=true;controls.editing=true;state.menu=false
         case 3: state.command(.steamMenu)
         case 4: confirmExit=true
-        case 5: confirmAccount=true
-        case 6: state.autoStart.toggle()
-        case 7: showSettings=true
+        case 5: state.autoStart.toggle()
+        case 6: showSettings=true
         default: state.menu=false
         }
     }
@@ -467,10 +483,10 @@ struct IDeckHUD: View {
                                     } label: {
                                         HStack { Text(label);Spacer();
                                             if index==1 { Image(systemName:controls.visible ? "checkmark.circle.fill":"circle") }
-                                            if index==6 { Image(systemName:state.autoStart ? "checkmark.circle.fill":"circle") }
+                                            if index==5 { Image(systemName:state.autoStart ? "checkmark.circle.fill":"circle") }
                                         }.frame(maxWidth:.infinity,alignment:.leading).padding(9)
                                             .background(selection==index ? Color.cyan.opacity(0.18):Color.clear,in:RoundedRectangle(cornerRadius:8))
-                                    }.id(index).disabled((3...5).contains(index) && (!state.controlReady || state.controlBusy))
+                                    }.id(index).disabled((3...4).contains(index) && (!state.controlReady || state.controlBusy))
                                 }
                                 if !state.controlReady { Text("Connecting Steam controls…").font(.caption) }
                                 if let message=state.controlStatus { Text(message).font(.caption).foregroundStyle(.secondary) }
@@ -508,9 +524,6 @@ struct IDeckHUD: View {
         .confirmationDialog("Exit the running game and return to Steam?",isPresented:$confirmExit,titleVisibility:.visible) {
             Button("Exit game",role:.destructive) { state.command(.exitGame) }
         } message: { Text("The game receives a normal close request. Confirm any save prompt inside the game.") }
-        .confirmationDialog("Change Steam account?",isPresented:$confirmAccount,titleVisibility:.visible) {
-            Button("Open Steam account chooser") { state.command(.changeAccount) }
-        } message: { Text("Steam handles switching accounts. Your installed games and saves stay in iDeck.") }
         .sheet(isPresented:$showSettings) { AllSettingsView() }
         .onReceive(LibraryController.shared.commands) { command in
             if command=="menu" { state.menu.toggle() }

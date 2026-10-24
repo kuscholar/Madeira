@@ -75,6 +75,27 @@
       "launcher/iDeck/keyboard regressions"
     ],
     "device_validation": "Installed; first session JIT allocation failed before Wine and PID later absent. Fresh launch PID21130 reached actual ready ready ACK; physical enabled/menu UI result pending.",
-    "ready_sha256": "e800348d9d264664b7da0a65bd9caec2694924f95f8c341aaefb4c1d3f832199"
+    "ready_sha256": "e800348d9d264664b7da0a65bd9caec2694924f95f8c341aaefb4c1d3f832199",
+    "user_feedback": "Steam menu works; change-account action has no effect."
+  },
+  "build48": {
+    "base_revision": "e37f0d6",
+    "user_request": "Move account switching to iDeck launcher; Big Picture uses selected Steam account",
+    "changes": [
+      "Launcher Sign in / Change Steam account action",
+      "Account launch passes fixed steam://changeuser directly to exact validated Steam exe with -bigpicture, avoids ShellExecute registry route",
+      "Remove old HUD account action; reindex controller navigation",
+      "One-time migration disables auto-start to expose launcher; user can opt back in"
+    ],
+    "authentication": "Genuine Steam account UI only; no native password fields, -login credentials, login-cache editing or token transfer",
+    "checks": [
+      "full Xcode48",
+      "deep strict signing",
+      "final debug dylib launcher label",
+      "launcher positive account URI/negative ordinary URI and no-credential argument tests",
+      "iDeck/keyboard regressions"
+    ],
+    "device": "installed same isolated bundle; ordinary no-argument launch succeeded; account action not invoked by agent; physical chooser/login/selected account continuity pending user",
+    "debug_macho_sha256": "a0a6879741ec059131d26e0f3e26c7160240f370e8e5749f45c6adde48391630"
   }
 }

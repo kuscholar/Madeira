@@ -66,6 +66,11 @@ mixed[132] = 0x4c; mixed[133] = 0x01
 try mixed.write(to: dll32)
 
 assert(!p32.batch.contains("noupdate") && !p32.batch.contains("login"))
+assert(!p32.batch.contains("steam://changeuser"))
+let account = try SteamUIExperiment.prepare(prefix: root, width: 1408, height: 648, flag: "1", bundleID: "test.steamui", x86Client: true, bigPicture: true, bigPictureFlag: "1", accountChooser: true)
+assert(account.batch.contains("-bigpicture steam://changeuser"))
+assert(!account.batch.contains("-login") && !account.batch.contains("-password"))
+
 let source32 = root.appendingPathComponent("drive_c/Steam32Lab")
 do { try SteamUIExperiment.importBundledX86(source: source32, prefix: root, flag: "1", bundleID: "test.working"); fatalError("import isolation") } catch {}
 try SteamUIExperiment.importBundledX86(source: source32, prefix: root, flag: "1", bundleID: "test.steamui")

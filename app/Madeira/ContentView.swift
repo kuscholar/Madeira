@@ -1298,7 +1298,7 @@ struct ContentView: View {
                 if IDeckState.enabled && ideck.running {
                     sessionBody.navigationBarHidden(true)
                 } else if IDeckState.enabled && !ideckAdvanced {
-                    IDeckLauncher(start: startIDeck, setupJIT: { jitCoordinator.showSetup = true },
+                    IDeckLauncher(start: { startIDeck() }, account: { startIDeck(accountChooser: true) }, setupJIT: { jitCoordinator.showSetup = true },
                                   diagnostics: { ideckAdvanced = true })
                 } else if library.enabled && library.current != nil {
                     sessionBody
@@ -3590,16 +3590,16 @@ struct ContentView: View {
         } catch { logStore.log("[steam-ui-probe] " + error.localizedDescription, level: .error) }
     }
 
-    private func startIDeck() {
+    private func startIDeck(accountChooser: Bool = false) {
         guard !ideck.running, !jitCoordinator.busy, wine_process_is_running() == 0 else { return }
         ideck.error = nil
         UserDefaults.standard.set(true, forKey: "iDeckSetupComplete")
-        let launch = { startSteamUIExperiment(x86Client: true, bigPicture: true) }
+        let launch = { startSteamUIExperiment(x86Client: true, bigPicture: true, accountChooser: accountChooser) }
         if jit_check_debugged() && StikJITHelper.ready { launch() }
         else { launchAfterJIT = launch; enableJIT() }
     }
 
-    private func startSteamUIExperiment(x86Client: Bool = false, bigPicture: Bool = false) {
+    private func startSteamUIExperiment(x86Client: Bool = false, bigPicture: Bool = false, accountChooser: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
             logStore.log("[steam-ui] launch refused: isolated experimental app, JIT and a fresh session are required", level: .error)
@@ -3617,7 +3617,7 @@ struct ContentView: View {
             if IDeckState.enabled { try ideck.installControl() }
             let plan = try SteamUIExperiment.prepare(prefix: prefix, width: size.0, height: size.1,
                 flag: MadeiraConfig.get(SteamUIExperiment.flag) ?? (IDeckState.enabled ? "1" : nil), bundleID: Bundle.main.bundleIdentifier, x86Client: x86Client, bigPicture: bigPicture,
-                bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag) ?? (IDeckState.enabled ? "1" : nil))
+                bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag) ?? (IDeckState.enabled ? "1" : nil), accountChooser: accountChooser)
             steamUIStarting = true
             Task { @MainActor in
                 await SteamOwnedLibrary.shared.prepareDock() // close competing native CM connection; no token transfer

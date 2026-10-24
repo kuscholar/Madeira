@@ -90,7 +90,7 @@ these source or host checks.
 The floating button now defaults to the safe top-right corner. Drag it to move;
 its normalized position persists and is clamped inside safe bounds after rotation.
 The scrolling menu includes Keyboard, Virtual controller, layout, Steam menu,
-Exit game → Steam, Change Steam account, auto-start and settings. Controller
+Exit game → Steam, auto-start and settings. Controller
 up/down/A also chooses menu entries. Account switching asks for confirmation then
 opens Valve's own `steam://changeuser` UI; iDeck never enters or copies credentials.
 
@@ -111,3 +111,15 @@ controls. Read `IDECK_CONTROL_EVIDENCE.json` for actual checks and limits.
 Build45's Windows helper reports XInput connected and one HID gamepad; UI touch
 navigation, menu effects, account chooser and game-return require separate real
 interface validation. Do not treat dispatch acknowledgement as UI success.
+
+
+## Build48 launcher account entry
+
+Sign in / Change Steam account lives in the iDeck launcher. It starts the genuine
+client with a fixed steam://changeuser request; no credentials appear in command
+arguments. Big Picture uses the same Steam prefix/session. Account choice and
+Steam Guard remain Steam UI operations performed by the user. The previous HUD
+account action was ineffective and has been removed. The first launch after this
+upgrade disables auto-start once so the launcher is reachable; its toggle remains
+available afterward. Physical account chooser and selected-account continuity
+are pending validation, not established by successful compilation/installation.

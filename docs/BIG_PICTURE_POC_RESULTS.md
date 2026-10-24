@@ -1488,3 +1488,22 @@ performed. Fresh explicit launch PID21130 actually produced `ready ready` ACK
 (private ready2.txt; hash in control evidence). This verifies x64 helper startup
 on this session, not all-session reliability or Steam menu UI success. User asked
 to check enabled state/menu; account action intentionally not invoked by agent.
+
+### Build48 account entry moves to iDeck launcher
+
+User confirms Build47 Steam menu works, but account action has no visible effect.
+User requests selecting/login via iDeck before entering Big Picture. Native Steam
+credentials are not interchangeable with Dock tokens: preserve Valve-owned login.
+Add launcher account action and pass the exact fixed steam://changeuser URI to
+validated Steam exe on initial launch with Big Picture, avoiding old ShellExecute
+registry dispatch. This is a new routing hypothesis; chooser success is unverified.
+Remove old HUD account item and adjust controller indices. One-time migration
+exposes launcher by disabling auto-start; subsequent toggle choice is preserved.
+No account/config login-cache deletion or credential arguments. Main unchanged.
+
+Full Xcode48, strict deep signing, final debug Mach-O label and production launch
+policy tests pass, including account URI present only on explicit account launch
+and absence of credential flags; existing iDeck/keyboard checks pass. Installed
+and ordinary no-argument launch succeeds. Private artifacts ideck-build48. Agent
+did not trigger logout/choose account. Physical chooser/login and subsequent
+Big Picture account continuity remain pending user test; no claim of validation.
