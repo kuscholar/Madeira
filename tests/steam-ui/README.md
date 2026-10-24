@@ -583,3 +583,16 @@ only. `env.MADEIRA_STEAM_UI_NO_SWIFTSHADER=0` restores the previous browser poli
 Run `python3 tests/host/check-steam-ui-software-3d.py` for production policy ASan/UBSan
 coverage. Confirm the actual native policy marker AND loaded modules/UI on phone;
 the flag's presence in the binary is not proof Steam honored it.
+
+Build41 update: explicit `madeira-swiftshader-diagnostics` now runs this staged
+probe through paired JIT. Missing/x64/non-isolated binaries are refused and
+Steam auto-start is excluded. Build41 actual device reaches vkCreateDevice then
+observes a C++ exception. The default software-rasterizer disabling experiment
+was rejected after a different CEF assertion/black screen; it now requires
+`env.MADEIRA_STEAM_UI_NO_SWIFTSHADER=1`, with unset/0 preserving old policy.
+
+Build44: the SAME probe now returns vkCreateDevice0 and PASS on phone after
+parent native correction of WoW GROUP_AFFINITY output attributes (12 ->16 bytes).
+`python3 tests/host/check-steam-ui-affinity32.py` exercises production decoding with
+ASan/UBSan, exact unaligned12-byte allocation, all fields preserved, ordinary/native
+and malformed gates. This does not prove Steam UI stability or Bluetooth/game return.

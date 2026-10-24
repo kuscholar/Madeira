@@ -18,9 +18,13 @@ enum SteamUIExperiment {
         let productDefault = Bundle.main.object(forInfoDictionaryKey: "IDeckEnabled") as? Bool == true ? "1" : nil
         return allowed(flag: MadeiraConfig.get(flag) ?? productDefault, bundleID: Bundle.main.bundleIdentifier)
     }
-    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false, keyedEvent: Bool = false) throws -> String {
+    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false, keyedEvent: Bool = false, swiftshader: Bool = false) throws -> String {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         let drive = prefix.appendingPathComponent("drive_c")
+        if swiftshader {
+            guard isX86PE(drive.appendingPathComponent("swiftshader32-probe.exe")) else { throw Failure.incompleteProbe }
+            return "/c C:\\swiftshader32-probe.exe"
+        }
         if keyedEvent {
             guard isX86PE(drive.appendingPathComponent("steam-ui-keyed-event32.exe")) else { throw Failure.incompleteProbe }
             return "/c C:\\steam-ui-keyed-event32.exe"

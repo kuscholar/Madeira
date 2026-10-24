@@ -1896,7 +1896,7 @@ NTSTATUS WINAPI NtCreateUserProcess( HANDLE *process_handle_ptr, HANDLE *thread_
                  * system_error(87). Disable only the 3D software fallback;
                  * Chromium's normal software compositor remains available. */
                 const char *software = getenv("MADEIRA_STEAM_UI_NO_SWIFTSHADER");
-                int no_swiftshader = steam_ui && !(software && !strcmp(software,"0"));
+                int no_swiftshader = steam_ui && software && !strcmp(software,"1");
                 char ui_switches[512];
                 if (no_swiftshader)
                 {

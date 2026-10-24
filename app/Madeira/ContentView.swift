@@ -1384,6 +1384,7 @@ struct ContentView: View {
                 DockReset.baselineProvider = { DockReset.templateRegistry { madeira_extract_prefix_tgz($0, $1) } }
                 // Explicit developer arguments only; ordinary launch starts nothing.
                 // Reuse the normal paired JIT flow for controlled remote tests.
+                let automaticSwiftshader = ProcessInfo.processInfo.arguments.contains("madeira-swiftshader-diagnostics")
                 let automaticKeyedEvent = ProcessInfo.processInfo.arguments.contains("madeira-keyed-event-diagnostics")
                 let automaticX86CEF = ProcessInfo.processInfo.arguments.contains("madeira-x86-cef-diagnostics")
                 let automaticNativeVM = ProcessInfo.processInfo.arguments.contains("madeira-native-vm-diagnostics")
@@ -1401,13 +1402,13 @@ struct ContentView: View {
                     }
                 }
                 if SteamUIExperiment.enabled, !automaticProbeRequested,
-                   automaticKeyedEvent || automaticX86CEF || automaticNativeVM || automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
+                   automaticSwiftshader || automaticKeyedEvent || automaticX86CEF || automaticNativeVM || automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
                     automaticProbeRequested = true
                     DispatchQueue.main.async {
                         launchAfterJIT = {
                             if automaticNativeVM { startSteamUINativeVMProbe() }
                             else if automaticSteamUI { startSteamUIExperiment(x86Client: automaticX86Client, bigPicture: automaticBigPicture) }
-                            else { startSteamUIProbe(fls: automaticFLS, reservation: automaticReservation, x86CEF: automaticX86CEF, keyedEvent: automaticKeyedEvent) }
+                            else { startSteamUIProbe(fls: automaticFLS, reservation: automaticReservation, x86CEF: automaticX86CEF, keyedEvent: automaticKeyedEvent, swiftshader: automaticSwiftshader) }
                         }
                         enableJIT()
                     }
@@ -3571,7 +3572,7 @@ struct ContentView: View {
         logStore.log("[native-vm] completed code=\(result); see steam-ui-native-vm-results.txt; no CEF validation")
     }
 
-    private func startSteamUIProbe(fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false, keyedEvent: Bool = false) {
+    private func startSteamUIProbe(fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false, keyedEvent: Bool = false, swiftshader: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
             logStore.log("[steam-ui-probe] launch refused: fresh isolated JIT session required", level: .error)
@@ -3579,12 +3580,12 @@ struct ContentView: View {
         }
         let prefix = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("wine")
         do {
-            let args = try SteamUIExperiment.prepareProbe(prefix: prefix, flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, fls: fls, reservation: reservation, x86CEF: x86CEF, keyedEvent: keyedEvent)
+            let args = try SteamUIExperiment.prepareProbe(prefix: prefix, flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, fls: fls, reservation: reservation, x86CEF: x86CEF, keyedEvent: keyedEvent, swiftshader: swiftshader)
             steamUIStarting = true
             setenv("MADEIRA_EXE", "cmd.exe", 1)
             setenv("MADEIRA_ARGS", args, 1)
             unsetenv("MADEIRA_DESKTOP")
-            logStore.log(x86CEF ? "[steam-ui-probe] begin official x86 chrome_elf heap/thread probe; no Steam client" : reservation ? "[steam-ui-probe] begin reserve-only ownership test; no Steam client" : fls ? "[steam-ui-probe] begin synthetic FLS lifetime test; no Steam client" : "[steam-ui-probe] begin synthetic atomic and process tests; no Steam client")
+            logStore.log(swiftshader ? "[steam-ui-probe] begin isolated official SwiftShader Vulkan initialization; no Steam client" : x86CEF ? "[steam-ui-probe] begin official x86 chrome_elf heap/thread probe; no Steam client" : reservation ? "[steam-ui-probe] begin reserve-only ownership test; no Steam client" : fls ? "[steam-ui-probe] begin synthetic FLS lifetime test; no Steam client" : "[steam-ui-probe] begin synthetic atomic and process tests; no Steam client")
             runWineFullSequence(steamUI: true)
         } catch { logStore.log("[steam-ui-probe] " + error.localizedDescription, level: .error) }
     }

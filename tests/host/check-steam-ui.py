@@ -140,6 +140,17 @@ assert(!x86Batch.contains("steam.exe") && !x86Batch.contains("steamwebhelper"))
 assert(x86Batch.unicodeScalars.filter { $0.value == 13 }.count == 4)
 do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.working", x86CEF: true); fatalError("working app must refuse x86") } catch {}
 
+
+let probeURL = root.appendingPathComponent("drive_c/swiftshader32-probe.exe")
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", swiftshader: true); fatalError("missing probe accepted") } catch {}
+try pe("swiftshader-probe-fixture.exe", machine: 0x8664)
+try FileManager.default.moveItem(at: client.appendingPathComponent("swiftshader-probe-fixture.exe"), to: probeURL)
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", swiftshader: true); fatalError("x64 probe accepted") } catch {}
+var probeData = try Data(contentsOf: probeURL);probeData[132] = 0x4c;probeData[133] = 0x01;try probeData.write(to: probeURL)
+let swiftProbeArguments = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.steamui", swiftshader: true)
+assert(swiftProbeArguments == "/c C:\\swiftshader32-probe.exe")
+do { _ = try SteamUIExperiment.prepareProbe(prefix: root, flag: "1", bundleID: "test.working", swiftshader: true); fatalError("ordinary app accepted probe") } catch {}
+
 print("PASS: feature flag, app isolation, complete x64 client, fixed command, dimensions, sanitized milestones")
 '''
 info = plistlib.loads((root/'app/Madeira/Info.plist').read_bytes())

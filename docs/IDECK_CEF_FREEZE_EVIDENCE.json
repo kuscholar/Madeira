@@ -29,7 +29,7 @@
     "same PID17634 alive after reported freeze",
     "no STATUS_NO_MEMORY/bad_alloc/pool exhaustion marker in sampled hang log"
   ],
-  "next_discriminator": "After native phone unlock launch installed Build40 once, verify actual policy marker, whether SwiftShader loads/throws, genuine UI rendering/navigation. If still failing, run isolated official SwiftShader Vulkan init probe and instrument actual CreateThread early failure; do not suppress C++/Crashpad assertions.",
+  "next_discriminator": "Preserve live Build44 session; next product gates controller/direct touch, licensed game launch and return, ordinary saved-login restart, bounded stability and Bluetooth. Do not repeat the fixed SwiftShader failure tests without new evidence.",
   "build32": {
     "ordinary_start": "JIT and genuine Big Picture launch markers present with no extra arguments",
     "native_snapshot_sha256": "f5ca975bd1393846ccbc242c495b2454e0ef63fab2e77b34c662df2ef50a904f",
@@ -153,6 +153,66 @@
       "ordinary_launch": "succeeded, PID20471",
       "initial_log": "actual build40 confirmed; too early for browser policy/UI result",
       "limitations": "no Big Picture or stability success inferred from launch"
+    }
+  },
+  "build40_black_screen": {
+    "user": "entered then black/unresponsive",
+    "native_log_sha256": "755246aa63ee2409e7b6a8f56d5092e335e04f0f5196712016e605ae7f7361a2",
+    "verified": [
+      "actual software-3d-fallback=disabled policy markers",
+      "no SwiftShader module load or system_error marker in this bounded trace",
+      "original breakpoint guest0x708daaa1",
+      "actual libcef base0x6afb0000, RVA0x592aaa1 matches disk INT3/UD2 and string_view assertion branch",
+      "Steam and CEF exit events while native app PID20471 remains alive"
+    ],
+    "limitations": [
+      "not the old fixed-base Crashpad assertion",
+      "three string_view assertion branches merge here; exact branch not captured",
+      "560MiB reduced native pool and peak physical4028MiB also observed; no sole-cause claim"
+    ],
+    "assessment": "policy not accepted as fix; restore default and keep explicit A/B opt-in only"
+  },
+  "build41": {
+    "patch": "software-3d disabling now requires explicit flag1; original default restored; new explicit madeira-swiftshader-diagnostics validates i386 PE and uses paired JIT without Steam start",
+    "local": "37 native/full Xcode/linked entry/deep signing pass; launcher test rejects missing/x64/non-isolated probe, accepts exact i386 command; existing readiness/policy checks pass",
+    "device": "installed, launched explicit probe, actual Vulkan instance success0, one physical device, before vkCreateDevice then observed e06d7363 without handling",
+    "probe_results_sha256": "3ab0fe88e4e0f05362df8b33b9bdc3a6143cdc034c107e4e0588d4cbcd1ed656",
+    "interpretation": "same failure family reproduced without Steam/CEF; cannot yet determine actual failing Win32/NT operation"
+  },
+  "build42_43": {
+    "actual": "same isolated Vulkan exception; NtCreateThreadEx returns c000000d or c000000b",
+    "stage": "c000000d at output-attributes; secondary c000000b at server-new-thread",
+    "self_process": "true, ffffffffffffffff; no pseudohandle truncation",
+    "zero_bits": "ffffffff (WoW mask); not proven cause",
+    "source_fault": "pinned wow64/process.c ps_attributes_32to64 GROUP_AFFINITY only widens pointer and claims layout same; native reads16 bytes but Win32 struct12",
+    "minimal_fix": "parent native update_attr_list, lab+WoW target+Size12: decode 32-bit mask and16-bit group/reserved into native16-byte structure, then unchanged NtSetInformationThread validation",
+    "host_test": "production helper ASan/UBSan passes exact unaligned12-byte read, mask zero extension, invalid group/reserved preserved, no mutation, ordinary/native/malformed gates",
+    "limitation": "actual device corrected probe still pending; no sole-root-cause claim"
+  },
+  "build44": {
+    "minimal_patch": "isolated WoW output GROUP_AFFINITY Size12 decoded to native16, all mask/group/reserved bits preserved, normal NtSetInformationThread validation retained",
+    "probe": "actual same staged i386 Vulkan program reaches vkCreateInstance0, one device, vkCreateDevice0 and PASS",
+    "threads": "seven observed NtCreateThreadEx return00000000, six exact32 affinity conversions group0 mask3f",
+    "results_sha256": "2ddf1d55177f254a8c88dbdc74e3c8fc762bdfd34777fb645adbe55933ec5fe2",
+    "native_sha256": "0069ec9cd157c569150434789879ffac59110de08d2e5cba6be20c9a37fdf079",
+    "final_debug_macho_sha256": "77cbe378adb2e244f79e347771b41554645bb8f93bd7328feb3c9c9b0ebb5b7b",
+    "verification": "37 native/full Xcode/linked conversion marker/deep strict signature, isolated install and actual probe passed",
+    "Steam": {
+      "launch": "explicit genuine Big Picture in preserved prefix; PID20656",
+      "native_log_sha256": "17b34de12e183cb9cc75ffebb0971d366c740febcc65c3fed874ecad28ec3338",
+      "bounded_elapsed_seconds": 59.31,
+      "observed_native_threads": {
+        "success": 128,
+        "failure": 0,
+        "cap": 128
+      },
+      "affinity_conversions": 6,
+      "exceptions": "no remote exception, system_error or old CEF fatal marker in this bounded sample",
+      "software_3d": "old default restored; no disabling marker",
+      "Steam_exit": "no Steam exit event in sample",
+      "capture": "strictly serial short suspend/copy/SIGCONT; both copy and resume succeeded",
+      "limitations": "timing perturbed by snapshot; no visual/interaction success inferred; user UI/library regression question pending",
+      "user_validation": "USER explicitly confirms can enter genuine Big Picture and browse Library on Build44; not agent visual verification"
     }
   }
 }

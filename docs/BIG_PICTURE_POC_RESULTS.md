@@ -1334,3 +1334,87 @@ Steam/JIT/policy markers; no automatic Steam launch is established. Mac CUA stil
 reports locked, so direct GUI inspection is unavailable. Leave installed PID20471
 undisturbed for the user to open iDeck/start Big Picture. This is successful app
 installation/launch, not successful CEF or game validation.
+
+### Build40 actual black-screen result; Build41 isolated Vulkan reproduction
+
+User reports entered then black/unresponsive. Actual live lab PID20471 native
+trace confirms both new policy markers, no SwiftShader module or system_error in
+this bounded trace, then guest breakpoint708daaa1. Actual libcef base6afb0000
+makes RVA592aaa1: exact official PE has INT3/UD2 after shared string_view assertion
+branches. This is not the old fixed-base report-writer fatal. Exact branch among
+three checks is not captured; do not assert it is definitively a null string.
+Steam/CEF process exit events occur while host app remains alive/black. Native
+pool also shrank to560MiB, peak phys4028MiB; these are observations, not sole cause.
+Private ideck-build40/black-screen/native.txt hash in freeze evidence.
+
+Decision: reject default disabling3D software fallback as a fix. Build41 restores
+old default; disabling now requires explicit env.MADEIRA_STEAM_UI_NO_SWIFTSHADER=1.
+This is a controlled A/B only, not a general runtime correction. Add explicit
+madeira-swiftshader-diagnostics entry, gated isolated bundle/flag, i386 probe PE,
+fresh JIT session; generic madeira-arg exclusion prevents concurrent Steam start.
+Host production policy/launcher tests pass missing/x64/non-isolated rejection,
+exact i386 command, ordinary path, opt-in/out and readiness.37 native/full Xcode,
+linked entry, deep strict signature and isolated install pass.
+
+Actual device probe PID20544: vkCreateInstance=0, enumerate=0/one physical device;
+before vkCreateDevice family0 then e06d7363 observed and NOT handled/suppressed.
+Result and private native log in ideck-build41/. This reproduces the driver failure
+without Steam/CEF/network/auth. Underlying Win32/NT failure still unknown.
+Build42 adds isolated bounded observation of EVERY NtCreateThreadEx return,
+including early server/attribute failures, with numeric status/flags/stack sizes
+only. Original arguments, handles and return status are delegated unchanged.
+Next re-run this same Vulkan probe to distinguish a native thread-create failure
+from a CRT allocation failure before the native call. Do not blame FEX or bypass
+assertions without discriminating evidence. Main baseline remains untouched.
+
+Build42 actual native results: all seven observed thread requests failed with
+c000000d INVALID_PARAMETER or c000000b INVALID_CID; zero_bitsffffffff is the WoW
+mask, not itself evidence of failure. Build43 records precise stage: first
+c000000d occurs in output-attributes AFTER native thread creation; later CID
+failures occur at server-new-thread. self=1/processffffffffffffffff refutes the
+pseudohandle-truncation hypothesis. Native logs private ideck-build42/43/.
+
+Source discriminator: pinned WoW ps_attributes_32to64 GROUP_AFFINITY widens the
+pointer but preserves12-byte struct/Size and incorrectly claims both layouts
+match. Win32 mask4+group2+reserved6=12; native mask8+group2+reserved6=16.
+update_attr_list dereferences it as native and invokes NtSetInformationThread,
+which rejects invalid group/reserved/mask and terminates the new thread.
+Build44 minimal fix is parent-owned native update_attr_list: only lab session,
+WoW target and Size12 decode each field into native structure, then SAME original
+validation/API. Invalid reserved/group values remain invalid; no status spoofing,
+affinity bypass, assertion suppression, Valve/FEX/submodule edit. Production helper
+ASan/UBSan harness passes exact unaligned12-byte read, zero extension, preservation
+of all fields, input immutability and ordinary/native/malformed rejection gates.
+Actual Vulkan re-test is required before claiming this corrected device behavior.
+
+### Build44 actual Vulkan PASS after minimal ABI correction
+
+All37 native/full Xcode/final linked conversion marker/deep strict signing and
+isolated installation pass. Same staged i386 Vulkan probe on actual Kusch:
+instance0, enumerate0/one physical device, device0, PASS including device/instance
+destruction. Six converted affinity structures group0/mask3f; all seven observed
+NtCreateThreadEx return00000000 rather than c000000d/c000000b. Exact private
+results/native/final debug Mach-O hashes in IDECK_CEF_FREEZE_EVIDENCE.json.
+This is artifact-backed device validation of the ABI/SwiftShader initialization
+correction, not proof of full Steam/library/game-return stability. Probe PID20639
+identity revalidated and terminated after capture, fresh explicit genuine Big
+Picture launch started in same prefix/auth. GUI result still pending; no agent
+credential entry and no claim that ordinary auto-start was exercised this time.
+
+Build44 real Steam regression: PID20656 fresh explicit Big Picture launch;
+strictly serial short suspend/copy/SIGCONT succeeded and process resumed. Bounded
+native sample at+59.31s:128 observed thread-create successes/zero failures (cap128),
+six correct affinity conversions, no system_error/remote-exception/old fatal marker
+and no Steam-exit event. Prior failed disabling policy absent. These are numeric
+runtime observations, NOT UI/interaction or long-term stability proof. Snapshot
+perturbs timing; user Library-navigation question is pending. Leave this live
+session undisturbed while awaiting UI report. No fresh login required.
+
+USER regression result after Build44: "可以进入并浏览" in response to whether
+Big Picture opens and Library browsing works. This is explicit user-confirmed
+interface/navigation success, separate from agent visual verification. Combined
+with exact Vulkan before/after and native thread evidence, the current black-screen
+report has a concrete verified correction. Do not claim all long-term/product gates
+complete: controller/direct touch, licensed game launch/return, ordinary restart
+with saved login and Bluetooth remain to be separately validated. Preserve live
+session and do not repeat the fixed diagnostic loop without new failure evidence.

@@ -19,14 +19,14 @@ int main(void) {
     char result[512];
     unsetenv("MADEIRA_STEAM_UI_NO_SWIFTSHADER");
     policy(0,result);assert(!strstr(result,"disable-software-rasterizer"));
-    policy(1,result);assert(strstr(result,"--disable-software-rasterizer"));
+    policy(1,result);assert(!strstr(result,"--disable-software-rasterizer"));
     assert(strstr(result,"--js-flags=--jitless"));
     setenv("MADEIRA_STEAM_UI_NO_SWIFTSHADER","0",1);
     policy(1,result);assert(!strstr(result,"disable-software-rasterizer"));
     setenv("MADEIRA_STEAM_UI_NO_SWIFTSHADER","1",1);
     policy(0,result);assert(!strstr(result,"disable-software-rasterizer"));
     policy(1,result);assert(strstr(result,"--disable-software-rasterizer"));
-    puts("PASS: production browser software-3D policy, isolated default, explicit A/B opt-out, ordinary path and existing switches preserved");
+    puts("PASS: production browser software-3D policy, isolated opt-in, explicit A/B opt-out, ordinary path and existing switches preserved");
 }
 '''
 with tempfile.TemporaryDirectory() as d:

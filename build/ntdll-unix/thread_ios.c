@@ -1560,6 +1560,23 @@ NTSTATUS init_thread_stack( TEB *teb, ULONG_PTR limit, SIZE_T reserve_size, SIZE
  *
  * Update the output attributes.
  */
+/* The pinned WoW PS_ATTRIBUTE_GROUP_AFFINITY thunk widens the pointer but
+ * preserves its 12-byte input structure. Native GROUP_AFFINITY has a 64-bit
+ * mask and is 16 bytes: copying just the pointer is not an ABI conversion.
+ * Decode all fields, including reserved words; normal validation still applies. */
+static int ios_steam_ui_affinity32( const PS_ATTRIBUTE *attribute, GROUP_AFFINITY *out )
+{
+    const char *lab=getenv("MADEIRA_STEAM_UI_SESSION");
+    unsigned mask; unsigned short tail[4];
+    if(!lab || strcmp(lab,"1") || sizeof(ULONG_PTR)!=8 || attribute->Size!=12 || !attribute->ValuePtr)
+        return 0;
+    memcpy(&mask,attribute->ValuePtr,4);
+    memcpy(tail,(const char *)attribute->ValuePtr+4,8);
+    out->Mask=mask;out->Group=tail[0];
+    memcpy(out->Reserved,tail+1,6);
+    return 1;
+}
+
 static NTSTATUS update_attr_list( PS_ATTRIBUTE_LIST *attr, HANDLE thread, const CLIENT_ID *id, TEB *teb )
 {
     SIZE_T i, count = (attr->TotalLength - sizeof(attr->TotalLength)) / sizeof(PS_ATTRIBUTE);
@@ -1581,7 +1598,13 @@ static NTSTATUS update_attr_list( PS_ATTRIBUTE_LIST *attr, HANDLE thread, const 
         }
         else if (attr->Attributes[i].Attribute == PS_ATTRIBUTE_GROUP_AFFINITY)
         {
-            GROUP_AFFINITY *aff = attr->Attributes[i].ValuePtr;
+            GROUP_AFFINITY *aff = attr->Attributes[i].ValuePtr, converted;
+            if (get_wow_teb(teb) && ios_steam_ui_affinity32(&attr->Attributes[i],&converted))
+            {
+                aff=&converted;
+                dprintf(2,"[steam-ui-affinity32] converted group=%u mask=%llx\n",
+                        (unsigned)aff->Group,(unsigned long long)aff->Mask);
+            }
             status = NtSetInformationThread( thread, ThreadGroupInformation, aff, sizeof(*aff) );
             if (status) break;
         }
@@ -1610,7 +1633,8 @@ NTSTATUS WINAPI NtCreateThread( HANDLE *handle, ACCESS_MASK access, OBJECT_ATTRI
 /***********************************************************************
  *              NtCreateThreadEx   (NTDLL.@)
  */
-NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATTRIBUTES *attr,
+static _Thread_local const char *ios_steam_ui_thread_stage;
+static NTSTATUS WINAPI ios_steam_ui_original_create_thread( HANDLE *handle, ACCESS_MASK access, OBJECT_ATTRIBUTES *attr,
                                   HANDLE process, PRTL_THREAD_START_ROUTINE start, void *param,
                                   ULONG flags, ULONG_PTR zero_bits, SIZE_T stack_commit,
                                   SIZE_T stack_reserve, PS_ATTRIBUTE_LIST *attr_list )
@@ -1682,11 +1706,13 @@ NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATT
         }
     }
 
+    ios_steam_ui_thread_stage="validate";
     if (zero_bits > 21 && zero_bits < 32) return STATUS_INVALID_PARAMETER_3;
 #ifndef _WIN64
     if (!is_old_wow64() && zero_bits >= 32) return STATUS_INVALID_PARAMETER_3;
 #endif
 
+    ios_steam_ui_thread_stage="remote-apc";
     if (process != NtCurrentProcess())
     {
         union apc_call call;
@@ -1716,8 +1742,10 @@ NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATT
         return status;
     }
 
+    ios_steam_ui_thread_stage="object-attributes";
     if ((status = alloc_object_attributes( attr, &objattr, &len ))) return status;
 
+    ios_steam_ui_thread_stage="request-pipe";
     if (server_pipe( request_pipe ) == -1)
     {
         free( objattr );
@@ -1733,6 +1761,7 @@ NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATT
 
     if (!access) access = THREAD_ALL_ACCESS;
 
+    ios_steam_ui_thread_stage="server-new-thread";
     SERVER_START_REQ( new_thread )
     {
         req->process    = wine_server_obj_handle( process );
@@ -1766,6 +1795,7 @@ NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATT
 
     pthread_sigmask( SIG_BLOCK, &server_block_set, &sigset );
 
+    ios_steam_ui_thread_stage="TEB";
     if ((status = virtual_alloc_teb( &teb )))
     {
         ios_note_thread_create_failure( "TEB", status, 0, stack_reserve, stack_commit );
@@ -1773,6 +1803,7 @@ NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATT
     }
 
     ios_its_step = NULL;
+    ios_steam_ui_thread_stage="stack";
     if ((status = init_thread_stack( teb, get_zero_bits_limit( zero_bits ), stack_reserve, stack_commit )))
     {
         ios_note_thread_create_failure( ios_its_step, status, 0, stack_reserve, stack_commit );
@@ -1801,6 +1832,7 @@ NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATT
     pthread_attr_setguardsize( &pthread_attr, 0 );
     pthread_attr_setscope( &pthread_attr, PTHREAD_SCOPE_SYSTEM ); /* force creating a kernel thread */
     InterlockedIncrement( &nb_threads );
+    ios_steam_ui_thread_stage="pthread";
     if ((pthread_err = pthread_create( &pthread_id, &pthread_attr, (void * (*)(void *))start_thread, teb )))
     {
         InterlockedDecrement( &nb_threads );
@@ -1822,10 +1854,30 @@ done:
         close( request_pipe[1] );
         return status;
     }
+    ios_steam_ui_thread_stage="output-attributes";
     if (attr_list) status = update_attr_list( attr_list, *handle, &teb->ClientId, teb );
     return status;
 }
 
+
+/* Observe every native return, including early server/attribute failures.
+ * No argument payloads, retries or changed status/handle semantics. */
+NTSTATUS WINAPI NtCreateThreadEx( HANDLE *handle, ACCESS_MASK access, OBJECT_ATTRIBUTES *attr,
+                                  HANDLE process, PRTL_THREAD_START_ROUTINE start, void *param,
+                                  ULONG flags, ULONG_PTR zero_bits, SIZE_T stack_commit,
+                                  SIZE_T stack_reserve, PS_ATTRIBUTE_LIST *attr_list )
+{
+    NTSTATUS status=ios_steam_ui_original_create_thread(handle,access,attr,process,start,param,
+                                                       flags,zero_bits,stack_commit,stack_reserve,attr_list);
+    const char *lab=getenv("MADEIRA_STEAM_UI_SESSION");
+    static unsigned samples;
+    if(lab && !strcmp(lab,"1") && __atomic_fetch_add(&samples,1,__ATOMIC_RELAXED)<128)
+        dprintf(2,"[steam-ui-thread-result] status=%08x pid=%04x stage=%s self=%u process=%p flags=%x zero_bits=%lx reserve=%lx commit=%lx\n",
+                (unsigned)status,(unsigned)(ULONG_PTR)NtCurrentTeb()->ClientId.UniqueProcess,
+                ios_steam_ui_thread_stage ? ios_steam_ui_thread_stage : "unknown",process==NtCurrentProcess(),process,
+                (unsigned)flags,(unsigned long)zero_bits,(unsigned long)stack_reserve,(unsigned long)stack_commit);
+    return status;
+}
 
 /***********************************************************************
  *           abort_thread
