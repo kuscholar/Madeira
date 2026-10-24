@@ -1507,3 +1507,32 @@ and absence of credential flags; existing iDeck/keyboard checks pass. Installed
 and ordinary no-argument launch succeeds. Private artifacts ideck-build48. Agent
 did not trigger logout/choose account. Physical chooser/login and subsequent
 Big Picture account continuity remain pending user test; no claim of validation.
+
+### Build49 initial Steam input focus discriminator
+
+User clarifies controller/mouse unresponsive inside guest Steam login/account
+window, not native launcher. Actual current helper reads xinput1/buttons0/hid1;
+resting enumeration is not event delivery. Prior native log had pad=none, so no
+physical controller presence is established. Additional question pending: direct
+finger response and virtual vs physical controller. Mac CUA remains locked.
+
+Hypothesis: initial visible Steam window is not foreground; helper previously
+only focused on menu action. Minimal isolated helper change waits for first
+visible Steam-owned window and focuses until one successful initial activation,
+then stops activating (cannot continually steal focus from games). Writes only
+startup focus/match booleans and sampled controller-state-change count. Own stale
+diagnostic files removed on fresh session. No key/text/account/window-title logs.
+No underlying runtime/FEX/Valve/auth changes. This is a discriminator, not a
+confirmed input fix. Full Xcode49/x64 Werror/strict signing/final PE markers and
+existing launcher/iDeck/keyboard regressions pass. Artifacts ideck-build49. Next
+read actual foreground match and observed controller changes while comparing
+physical touch/controller/mouse response; distinguish a frozen UI or unsupported
+login gamepad navigation if foreground and events are proven. Counter polls at
+500ms and may miss short presses; do not overinterpret zero count.
+
+Actual Build49 installed and launched ordinary genuine Big Picture mode without
+account-switch request. Fresh helper reports startup_focus1/foreground_matches1,
+and resting xinput1/hid1/observed_changes0. Hashes in control evidence. Confirms
+initial foreground acquisition, not previous lack of focus, working mouse or
+controller UI. Waiting for physical touch/virtual-vs-physical clarification and
+post-change response. Keep this session alive. No agent credential interaction.

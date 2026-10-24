@@ -268,7 +268,7 @@ import UIKit
         }
         let drive=prefix.appendingPathComponent("drive_c")
         try Data(contentsOf:source).write(to:drive.appendingPathComponent("ideck-control.exe"),options:.atomic)
-        for name in ["ideck-command.txt","ideck-command-result.txt"] { try? FileManager.default.removeItem(at:drive.appendingPathComponent(name)) }
+        for name in ["ideck-command.txt","ideck-command-result.txt","ideck-focus-status.txt","ideck-input-status.txt"] { try? FileManager.default.removeItem(at:drive.appendingPathComponent(name)) }
         controlReady=false;controlBusy=false;requestID=nil;controlStatus=nil
     }
     func observeControl() {

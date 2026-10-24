@@ -65,9 +65,14 @@ static UINT key(WORD vk,DWORD flags) {
     input.ki.wScan=(WORD)MapVirtualKeyW(vk,MAPVK_VK_TO_VSC);
     input.ki.dwFlags=flags;return SendInput(1,&input,sizeof(input));
 }
+static void focus_status(int focused) {
+    FILE *f=fopen("C:\\ideck-focus-status.txt","w");
+    if(f){fprintf(f,"startup_focus=%d foreground_matches=%d\n",focused,
+        steam_window && GetForegroundWindow()==steam_window);fclose(f);}
+}
 static void input_status(void) {
     typedef DWORD (WINAPI *GetState)(DWORD,XINPUT_STATE *);
-    static GetState get;static int initialized;static DWORD last_connected=99,last_buttons=0xffffffffU,last_hid=99;
+    static GetState get;static int initialized;static unsigned long observed_changes;static XINPUT_GAMEPAD previous_pad;static DWORD last_connected=99,last_buttons=0xffffffffU,last_hid=99;
     if(!initialized){HMODULE dll=LoadLibraryW(L"xinput1_4.dll");get=dll?(GetState)(void *)GetProcAddress(dll,"XInputGetState"):NULL;initialized=1;}
     XINPUT_STATE state={0};DWORD connected=get&&get(0,&state)==ERROR_SUCCESS;
     RAWINPUTDEVICELIST devices[32];UINT count=32;DWORD hid=0;
@@ -78,9 +83,11 @@ static void input_status(void) {
            info.hid.usUsagePage==1&&(info.hid.usUsage==4||info.hid.usUsage==5))hid++;
     }
     DWORD buttons=connected?state.Gamepad.wButtons:0;
-    if(connected!=last_connected||buttons!=last_buttons||hid!=last_hid) {
+    int pad_changed=memcmp(&previous_pad,&state.Gamepad,sizeof(previous_pad))!=0;
+    if(pad_changed){observed_changes++;previous_pad=state.Gamepad;}
+    if(connected!=last_connected||buttons!=last_buttons||hid!=last_hid||pad_changed) {
         FILE *f=fopen("C:\\ideck-input-status.txt","w");
-        if(f){fprintf(f,"xinput=%lu buttons=%04lx hid_gamepads=%lu\n",(unsigned long)connected,(unsigned long)buttons,(unsigned long)hid);fclose(f);}
+        if(f){fprintf(f,"xinput=%lu buttons=%04lx hid_gamepads=%lu observed_changes=%lu\n",(unsigned long)connected,(unsigned long)buttons,(unsigned long)hid,observed_changes);fclose(f);}
         last_connected=connected;last_buttons=buttons;last_hid=hid;
     }
 }
@@ -91,9 +98,15 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE previous,PWSTR line,int show) {
     char last[37]="",id[37],command[32],pending[37]="";HANDLE exiting=NULL;ULONGLONG deadline=0;
     if(read_request(id,command))strcpy(last,id); /* Never replay a stale action on startup. */
     ack("ready","ready");
-    unsigned input_ticks=0;
+    unsigned input_ticks=0;int initial_focus=0;
     for(;;) {
-        if(!(input_ticks++%5))input_status();
+        if(!(input_ticks++%5)) {
+            /* Steam is started after this helper. Its first login/browser window
+             * must own Windows input before controller/keyboard navigation. Stop
+             * activating once successful; never keep stealing focus from games. */
+            if(!initial_focus && focus_steam()) { initial_focus=1;focus_status(1); }
+            input_status();
+        }
         if(exiting) {
             DWORD state=WaitForSingleObject(exiting,0);
             if(state==WAIT_OBJECT_0) {

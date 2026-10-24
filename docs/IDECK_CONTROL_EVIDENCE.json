@@ -96,6 +96,30 @@
       "iDeck/keyboard regressions"
     ],
     "device": "installed same isolated bundle; ordinary no-argument launch succeeded; account action not invoked by agent; physical chooser/login/selected account continuity pending user",
-    "debug_macho_sha256": "a0a6879741ec059131d26e0f3e26c7160240f370e8e5749f45c6adde48391630"
+    "debug_macho_sha256": "a0a6879741ec059131d26e0f3e26c7160240f370e8e5749f45c6adde48391630",
+    "user_feedback": "After entering Steam account/login window, controller and mouse have no effect. Touch response and physical vs virtual controller clarification pending."
+  },
+  "build49": {
+    "base_revision": "7008a6a",
+    "observed": "User locates failure in guest Steam window; Windows helper status still xinput1/buttons0/hid1. No proof of a button edge reaching Steam. Prior log reports pad=none at launch.",
+    "hypothesis": "Steam initial login/browser window lacks foreground activation; helper previously focused only on explicit menu command",
+    "minimal_patch": "Try focus once successfully after first visible Steam window; no continuing refocus after success. Record startup foreground match and sampled controller-change counter. Clear only own stale diagnostic files at fresh launch.",
+    "limits": [
+      "Does not establish that focus caused reported failure",
+      "500ms sampled controller changes may miss short presses",
+      "Does not add gamepad navigation to Steam screens that do not support it",
+      "Mouse hardware/AssistiveTouch availability still unverified"
+    ],
+    "checks": [
+      "full Xcode49",
+      "x64 helper Werror",
+      "strict signing",
+      "final PE focus imports/status strings",
+      "existing launcher/iDeck/keyboard checks"
+    ],
+    "helper_sha256": "acc30f3f335594eb001baa878636137a3e5ea9333b5600a734fa3290eeb1c8cc",
+    "device": "Installed and explicit normal Big Picture launch succeeded without requesting account switch. Actual startup_focus1/foreground_matches1; xinput1/hid1/observed_changes0 at rest. User effect pending; zero resting sample is not failed input proof.",
+    "focus_sha256": "73f91c28ef9e88fac4d5c72e177f3fbed5f6c5f43af9a7f41d15a4f5311b70ae",
+    "input_sha256": "39dcb7f9d7314579e2bb02d7f46c5449c05b8a9dca76ede46b945b6c85bbcb44"
   }
 }
