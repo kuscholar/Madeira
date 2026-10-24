@@ -1570,3 +1570,47 @@ Copied actual device batch confirms neither -bigpicture nor changeuser on this
 controlled launch; helper ready/ready. Final helper/debug Mach-O hashes recorded.
 User fresh-login/Guard completion test is pending. Preserve session and verify
 actual successful-login marker plus real Big Picture view before any GO claim.
+
+### Build51 post-login transition and current-process WoW PEB isolation
+
+User reports Build50 login succeeds then Steam icon spins entering Big Picture.
+Actual Steam10:41:53 Success/OK and categorical native success marker confirm
+fresh authentication. Helper ack big-picture-requested only proves dispatch.
+Captured native snapshot has no Mach unhandled/CEF-fatal marker; frontend has
+missing-friend-cache warnings and an uncaught promise TypeError reading persona.
+No identifiers published and no sole-cause attribution to that JS error.
+
+Single discriminator: same Build50/client/prefix, fresh direct Big Picture start
+without changing account. Identity-verified PID21478 stopped after collecting
+logs; direct PID21564 launched but failed before UI in wow64.dll RVA1b724, write
+0x480. Exact shipped ARM64 PE disassembly identifies class26
+NtQueryInformationProcess(ProcessWow64Information), load returned PEB32, then
+store WOW64INFO at PEB32+0x480. This is a NULL returned PEB32, not proof of absent
+CPU-reserved area. Correct the earlier Build46/47 description accordingly.
+
+Source matches this failure: current-process query reads shared wow_peb, while
+loader clears/reassigns it during sibling native startup. Minimal Build51 lab+
+64bit-only correction resolves calling TEB->Peb through owner-bound WoW registry
+and returns that owner's PEB+Wine page_size, or0 for native owners. Ordinary,
+old-style and remote-handle query branches unchanged. No FEX/Valve/submodule or
+assertion edits. ASan/UBSan production tests include two concurrent WoW owners,
+native owner, foreign/null shared legacy values, missing TEB and gates. 37/37
+native units/full Xcode51/final debug Mach-O marker/deep signing pass; launch,
+login observer/keyboard/affinity/keyed-event regressions pass. Host sanitizer
+checks rerun using system clang after LLVM-Mingw PATH lacked Darwin ASan runtime.
+
+Ordinary launcher now uses direct Big Picture for the preserved Steam login;
+desktop-login-first remains explicit account setup and diagnostic mode. Avoid
+forcing every normal reopen through the already problematic live desktop-to-BPM
+transition. This is not evidence that live transition is repaired. Private
+artifacts ideck-transition50 and ideck-build51, hashes and exact limits in
+IDECK_LOGIN_TRANSITION_EVIDENCE.json. Actual device query/startup/UI result pending.
+
+Build51 actual install/direct launch PID21625 succeeded. Fresh Steam10:50:52
+Success/OK verifies saved login survived restart without agent credentials.
+Steam UI new BrowserReady10:50:55 follows gamepadui initialization; not proof
+of rendered or interactive home. Native live log copy failed CoreDevice7000/
+POSIX60 and produced an empty file; do not infer absence of faults or process
+exit from it. Login/UI evidence hashes recorded. Keep session alive for physical
+UI confirmation; next discriminate whether home/library renders and navigation
+works before changing runtime again. No account re-login needed based on logs.

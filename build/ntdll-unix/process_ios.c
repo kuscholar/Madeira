@@ -3633,6 +3633,29 @@ void fill_vm_counters( VM_COUNTERS_EX *pvmi, int unix_pid )
 /**********************************************************************
  *           NtQueryInformationProcess  (NTDLL.@)
  */
+/* Steam lab: ProcessWow64Information describes THIS pseudo-process. The
+ * session wow_peb is temporarily cleared/reassigned while siblings boot.
+ * env_ios.c places each PEB32 at its own native PEB + Wine page_size; the
+ * owner-bound guest-window registry distinguishes WoW from native owners. */
+static ULONG_PTR ios_steam_ui_current_wow_peb( ULONG_PTR legacy )
+{
+    const char *session = getenv( "MADEIRA_STEAM_UI_SESSION" );
+    TEB *teb;
+    void *owner;
+    ULONG_PTR base, result;
+    static LONG lines;
+    if (!session || strcmp( session, "1" ) || !is_win64) return legacy;
+    teb = NtCurrentTeb();
+    owner = teb ? teb->Peb : NULL;
+    base = owner ? ios_wow_base_for_peb( owner ) : 0;
+    result = base ? (ULONG_PTR)owner + page_size : 0;
+    if (InterlockedIncrement( &lines ) <= 32)
+        dprintf( 2, "[steam-ui-wow-peb] owner=%p guest=%p legacy=%p result=%p\n",
+                 owner, (void *)base, (void *)legacy, (void *)result );
+    return result;
+}
+/* end ios_steam_ui_current_wow_peb */
+
 NTSTATUS WINAPI NtQueryInformationProcess( HANDLE handle, PROCESSINFOCLASS class, void *info,
                                            ULONG size, ULONG *ret_len )
 {
@@ -3975,7 +3998,8 @@ NTSTATUS WINAPI NtQueryInformationProcess( HANDLE handle, PROCESSINFOCLASS class
         len = sizeof(ULONG_PTR);
         if (size != len) return STATUS_INFO_LENGTH_MISMATCH;
         if (handle == GetCurrentProcess())
-            *(ULONG_PTR *)info = is_old_wow64() ? (ULONG_PTR)peb : (ULONG_PTR)wow_peb;
+            *(ULONG_PTR *)info = ios_steam_ui_current_wow_peb(
+                is_old_wow64() ? (ULONG_PTR)peb : (ULONG_PTR)wow_peb );
         else
         {
             ULONG_PTR val = 0;

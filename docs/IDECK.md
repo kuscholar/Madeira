@@ -141,3 +141,14 @@ For an isolated on-device discriminator without signing out, launch with
 waits for success and never requests changeuser. User enters any required Steam
 Guard/credentials directly. This flow's actual authentication/transition is still
 pending device validation; it is not an established fix for browser hangs.
+
+
+## Build51 saved-login startup
+
+Normal Launch Steam Big Picture (and auto-start) again starts direct Big Picture
+using Steam's saved login. Desktop-login-first remains the explicit account-entry
+flow and diagnostic argument. This avoids repeating the known hanging live
+transition on every normal reopen. Build50 fresh Steam authentication succeeded,
+but live transition did not complete; its JS persona error is not proven causal.
+Build51 also isolates current-process PEB32 queries from sibling startup globals.
+On-device UI and longer stability remain separate validation gates.
