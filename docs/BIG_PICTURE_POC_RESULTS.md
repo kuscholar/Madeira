@@ -1463,3 +1463,28 @@ input-format experiment, not proof of root cause or actual menu opening. Next:
 physical on-device Steam menu click with corrected helper, then distinguish focus
 or modifier routing if still ineffective. Account switching and game return remain
 unverified; do not log out or force-close games for diagnostic convenience.
+
+### Build47 disabled Steam controls: helper startup architecture
+
+User reports Steam menu and change-account disabled in Build46. Private native
+log proves helper started as i386 pid0068/tid006c then ended with c0000005 before
+ready ACK. Fault is wow64.dll RVA1b724 writing0x480 with absent CPU reserved state;
+this is helper compatibility-layer initialization, not failed Steam shortcut UI.
+No sole cause of the underlying WoW64 initialization failure is claimed. Build45
+had reached ready; its success does not establish reliable i386 helper startup.
+
+Small discriminating change: compile our helper x86_64 and enforce that exact
+machine in native shell resource validation, avoiding additional i386 startup.
+Genuine Steam stays i386, existing native runtime/Valve/auth paths unchanged.
+Prior scan-code correction retained but not yet proven by physical UI effects.
+Xcode47, helper x64 machine inspection/Werror, strict deep signing and existing
+iDeck/launcher/keyboard checks pass. Private artifacts ideck-build47; exact hashes
+in IDECK_CONTROL_EVIDENCE.json. Next establish actual ready ACK, then physical
+Steam-menu and account-chooser availability; do not automate account switching.
+
+Build47 device outcome: installed/signed. First launch failed JIT pool allocation
+before Wine; original PID21122 was absent on inventory, so no termination was
+performed. Fresh explicit launch PID21130 actually produced `ready ready` ACK
+(private ready2.txt; hash in control evidence). This verifies x64 helper startup
+on this session, not all-session reliability or Steam menu UI success. User asked
+to check enabled state/menu; account action intentionally not invoked by agent.

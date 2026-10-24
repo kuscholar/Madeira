@@ -254,7 +254,7 @@ import UIKit
     private var requestID: String?
     private var requestedAt = Date.distantPast
     func installControl() throws {
-        guard let source=Bundle.main.resourceURL?.appendingPathComponent("ideck-control.exe"), SteamUIExperiment.isX86PE(source) else {
+        guard let source=Bundle.main.resourceURL?.appendingPathComponent("ideck-control.exe"), SteamUIExperiment.isX64PE(source) else {
             throw NSError(domain:"iDeck",code:10,userInfo:[NSLocalizedDescriptionKey:"iDeck control helper is missing from this build."])
         }
         let drive=prefix.appendingPathComponent("drive_c")

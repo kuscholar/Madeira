@@ -58,7 +58,23 @@
       "deep strict signing",
       "iDeck launcher and keyboard host regressions"
     ],
-    "device_validation": "Upgrade and explicit Big Picture launch succeeded; actual Steam menu user test pending. Initial readiness copy returned missing file, not evidence of process death.",
+    "device_validation": "User reports Steam menu/change account disabled. Private native log confirms helper i386 pid0068/tid006c crashes before readiness in wow64.dll+0x1b724 writing address0x480; CPU reserved state absent. Menu scan-code fix not UI-tested.",
     "linked_helper": "Final bundled i386 PE imports MapVirtualKeyW and SendInput"
+  },
+  "build47": {
+    "base_revision": "834f92b",
+    "observed_failure": "helper pre-entry i386 WoW64 initialization fault; no readiness ACK, controls disabled",
+    "hypothesis": "separate x64 helper avoids the failing i386 startup path",
+    "patch": "Compile only our helper x86_64 and validate machine8664 before copying; keep Steam i386/client/auth and existing command semantics",
+    "helper_sha256": "025ad1e2ee420a53a4a2b5ea217a00bb91a0fe85132bc0c6db17878c223f9ab4",
+    "private_build46_log_sha256": "66c193d3aa9ed77c5cbe68301f55d18a963dfede0298b1103ccd6b6bddbb41ea",
+    "local_checks": [
+      "full Xcode47",
+      "helper coff-x86-64 inspected",
+      "deep strict signing",
+      "launcher/iDeck/keyboard regressions"
+    ],
+    "device_validation": "Installed; first session JIT allocation failed before Wine and PID later absent. Fresh launch PID21130 reached actual ready ready ACK; physical enabled/menu UI result pending.",
+    "ready_sha256": "e800348d9d264664b7da0a65bd9caec2694924f95f8c341aaefb4c1d3f832199"
   }
 }

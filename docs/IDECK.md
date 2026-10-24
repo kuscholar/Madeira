@@ -96,7 +96,7 @@ opens Valve's own `steam://changeuser` UI; iDeck never enters or copies credenti
 
 A small GPL Windows control helper is built from `build/ideck-control/` into the
 app by the resource phase. Set LLVM_MINGW to the toolchain root or put
-`i686-w64-mingw32-clang` on PATH. It accepts only three fixed local actions, uses
+`x86_64-w64-mingw32-clang` on PATH. It accepts only three fixed local actions, uses
 no network and no arbitrary shell command. Steam menu focuses the real Steam
 window and sends Ctrl+1. Exit game sends a normal WM_CLOSE, waits for actual
 process exit, then opens Big Picture. It never force-kills a game; confirm any
