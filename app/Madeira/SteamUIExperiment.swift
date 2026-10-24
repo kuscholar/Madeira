@@ -14,7 +14,10 @@ enum SteamUIExperiment {
     static func allowed(flag: String?, bundleID: String?) -> Bool {
         flag == "1" && bundleID?.hasSuffix(".steamui") == true
     }
-    static var enabled: Bool { allowed(flag: MadeiraConfig.get(flag), bundleID: Bundle.main.bundleIdentifier) }
+    static var enabled: Bool {
+        let productDefault = Bundle.main.object(forInfoDictionaryKey: "IDeckEnabled") as? Bool == true ? "1" : nil
+        return allowed(flag: MadeiraConfig.get(flag) ?? productDefault, bundleID: Bundle.main.bundleIdentifier)
+    }
     static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false) throws -> String {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         let drive = prefix.appendingPathComponent("drive_c")
@@ -130,6 +133,19 @@ enum SteamUIExperiment {
     }
 }
 
+// Foundation-only lifecycle policy, shared by the launcher and host checks.
+enum IDeckRules {
+    static func shouldAutoStart(setup: Bool, ready: Bool, automatic: Bool, arguments: [String]) -> Bool {
+        setup && ready && automatic && !arguments.contains { $0.hasPrefix("madeira-") }
+    }
+    static func clientReady(prefix: URL) -> Bool {
+        let client = prefix.appendingPathComponent("drive_c/Steam32BundleLab")
+        return FileManager.default.fileExists(atPath: prefix.appendingPathComponent("system.reg").path) &&
+            ["steam.exe", "steamclient.dll", "bin/cef/cef.win7/steamwebhelper.exe", "bin/cef/cef.win7/libcef.dll"]
+                .allSatisfy { SteamUIExperiment.isX86PE(client.appendingPathComponent($0)) }
+    }
+}
+
 @MainActor
 final class SteamUIEvidence {
     static let shared = SteamUIEvidence()
@@ -182,3 +198,216 @@ final class SteamUIEvidence {
         }
     }
 }
+
+// iDeck is an isolated product shell around the genuine local Steam runtime.
+// Authentication remains entirely inside Valve's client and its existing prefix.
+#if canImport(SwiftUI) && canImport(UIKit)
+import SwiftUI
+import UIKit
+
+@MainActor final class IDeckState: ObservableObject {
+    static let shared = IDeckState()
+    static var enabled: Bool {
+        SteamUIExperiment.enabled && MadeiraConfig.flag("MADEIRA_IDECK", fallback: Bundle.main.object(forInfoDictionaryKey: "IDeckEnabled") as? Bool == true)
+    }
+    @Published var running = false
+    @Published var preparing = false
+    @Published var error: String?
+    @Published var menu = false
+    var menuRect = CGRect.zero
+    @Published var ready = false
+    @Published var autoStart = UserDefaults.standard.object(forKey: "iDeckAutoStart") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(autoStart, forKey: "iDeckAutoStart") }
+    }
+    var setupDone: Bool { UserDefaults.standard.bool(forKey: "iDeckSetupComplete") }
+    var prefix: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("wine") }
+    func refresh() {
+        ready = IDeckRules.clientReady(prefix: prefix)
+    }
+    func prepare() {
+        guard Self.enabled, !preparing, !running, wine_process_is_running() == 0 else { return }
+        preparing = true; error = nil
+        let target = prefix
+        Task {
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    let fm = FileManager.default
+                    if !fm.fileExists(atPath: target.appendingPathComponent("system.reg").path) {
+                        guard let archive = Bundle.main.path(forResource: "prefix-template", ofType: "tar.gz") else {
+                            throw NSError(domain: "iDeck", code: 1, userInfo: [NSLocalizedDescriptionKey: "The runtime template is missing from this build."])
+                        }
+                        // Never extract over an existing prefix with user data.
+                        if fm.fileExists(atPath: target.path), !(try fm.contentsOfDirectory(atPath: target.path)).isEmpty {
+                            throw NSError(domain: "iDeck", code: 2, userInfo: [NSLocalizedDescriptionKey: "An incomplete runtime exists. It has been preserved; use diagnostics before repairing it."])
+                        }
+                        try fm.createDirectory(at: target, withIntermediateDirectories: true)
+                        guard madeira_extract_prefix_tgz(archive, target.path) == 0 else {
+                            throw NSError(domain: "iDeck", code: 3, userInfo: [NSLocalizedDescriptionKey: "Runtime preparation failed. Your files have been preserved."])
+                        }
+                    }
+                    guard let source = Bundle.main.resourceURL?.appendingPathComponent("Steam32OfficialClient"), fm.fileExists(atPath: source.path) else {
+                        throw NSError(domain: "iDeck", code: 4, userInfo: [NSLocalizedDescriptionKey: "This build needs the verified official Steam client resources. See iDeck build instructions."])
+                    }
+                    try SteamUIExperiment.importBundledX86(source: source, prefix: target,
+                        flag: MadeiraConfig.get(SteamUIExperiment.flag) ?? "1", bundleID: Bundle.main.bundleIdentifier)
+                }.value
+                for (key, value) in [SteamUIExperiment.flag: "1", SteamUIExperiment.bigPictureFlag: "1",
+                    "env.MADEIRA_GDI_SHARED_SECTION": "1", "env.MADEIRA_STEAM_UI_ALLOW_CRASHPAD": "1",
+                    "env.MADEIRA_STEAM_UI_STRICT_RESERVATIONS": "1", "env.MADEIRA_FRONTEND": "0",
+                    "env.MADEIRA_CONTROLS_XBOX_DEFAULT": "1", "pool-split": "1", "pool-low": "1"] {
+                    guard MadeiraConfig.set(key, value) else {
+                        throw NSError(domain: "iDeck", code: 5, userInfo: [NSLocalizedDescriptionKey: "Could not save runtime settings."])
+                    }
+                }
+                refresh()
+                if ready { UserDefaults.standard.set(true, forKey: "iDeckSetupComplete") }
+            } catch { self.error = error.localizedDescription }
+            preparing = false
+        }
+    }
+}
+
+struct IDeckLauncher: View {
+    let start: () -> Void
+    let setupJIT: () -> Void
+    let diagnostics: () -> Void
+    @ObservedObject private var state = IDeckState.shared
+    @ObservedObject private var jit = JITCoordinator.shared
+    @State private var selection = 2
+    private func accept() {
+        switch selection {
+        case 0: if !state.ready { state.prepare() }
+        case 1: setupJIT()
+        case 2: if state.ready && !jit.busy { start() }
+        default: state.autoStart.toggle()
+        }
+    }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(spacing: 14) {
+                    Image(systemName: "gamecontroller.fill").font(.largeTitle).foregroundStyle(.cyan)
+                    VStack(alignment: .leading) {
+                        Text("iDeck").font(.largeTitle.bold())
+                        Text("Your Steam library. On your iPhone.").foregroundStyle(.secondary)
+                    }
+                }
+                Text("Complete setup once, then launch Steam Big Picture locally. Steam handles sign-in and remembers this device when you choose Remember me.")
+                GroupBox("1 · Runtime & Steam") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label(state.ready ? "Runtime ready" : "Prepare the local runtime", systemImage: state.ready ? "checkmark.circle.fill" : "shippingbox")
+                        if !state.ready {
+                            Button(state.preparing ? "Preparing…" : "Prepare iDeck") { state.prepare() }
+                                .disabled(state.preparing).buttonStyle(.borderedProminent)
+                            if state.preparing { ProgressView() }
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                GroupBox("2 · Device & JIT") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Use Madeira’s existing device pairing and JIT setup. iDeck requests JIT again when a new session needs it.")
+                        Button("Configure pairing & JIT", action: setupJIT).buttonStyle(.bordered)
+                        if let message = jit.status { Text(message).font(.caption).foregroundStyle(.secondary) }
+                        if let message = jit.error { Text(message).foregroundStyle(.orange) }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Button(action: start) {
+                    Label(jit.busy ? "Enabling JIT…" : "Launch Steam Big Picture", systemImage: "play.fill")
+                        .font(.headline).frame(maxWidth: .infinity).padding(12)
+                }.buttonStyle(.borderedProminent).disabled(!state.ready || state.preparing || jit.busy)
+                Toggle("Open Big Picture automatically next time", isOn: $state.autoStart)
+                if let error = state.error { Text(error).foregroundStyle(.orange) }
+                Text("Connect a controller, or tap directly on Steam. The floating iDeck button opens the keyboard, virtual controller and options.").foregroundStyle(.secondary)
+                Text("Powered by Madeira · Genuine Windows Steam, not Linux SteamOS. This proof of concept uses Valve’s legacy 32-bit client; compatibility is experimental.").font(.caption).foregroundStyle(.secondary)
+                Button("Advanced diagnostics", action: diagnostics).font(.caption)
+            }.padding(24).frame(maxWidth: 660)
+                .frame(maxWidth: .infinity)
+        }.background(Color(.systemGroupedBackground))
+        .onAppear {
+            state.refresh()
+            LibraryController.shared.configure(enabled: true, ownsInput: true)
+        }
+        .onDisappear { LibraryController.shared.configure(enabled: true, ownsInput: false) }
+        .onReceive(LibraryController.shared.commands) { command in
+            if command == "up" { selection = max(0, selection - 1) }
+            if command == "down" { selection = min(3, selection + 1) }
+            if command == "accept" { accept() }
+        }
+        .overlay(alignment: .bottom) {
+            Text(["Controller: Prepare runtime", "Controller: Pairing & JIT", "Controller: Launch Big Picture", "Controller: Auto-start"][selection])
+                .font(.caption).padding(8).background(.regularMaterial, in: Capsule()).padding(8)
+        }
+    }
+}
+
+struct IDeckHUD: View {
+    @ObservedObject private var state = IDeckState.shared
+    @ObservedObject private var controls = TouchControlsModel.shared
+    @State private var showSettings = false
+    @State private var selection = 0
+    private func keyboard() { state.menu = false; MetalBackedView.toggleKeyboard() }
+    private func accept() {
+        switch selection {
+        case 0: keyboard()
+        case 1: controls.visible.toggle()
+        case 2: controls.visible = true; controls.editing = true; state.menu = false
+        case 3: state.autoStart.toggle()
+        case 4: showSettings = true
+        default: state.menu = false
+        }
+    }
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topTrailing) {
+                if state.menu {
+                    Color.black.opacity(0.7).ignoresSafeArea().onTapGesture { state.menu = false }
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack { Text("iDeck").font(.title2.bold()); Spacer(); Button("Done") { state.menu = false } }
+                        Button("Keyboard", systemImage: "keyboard") {
+                            keyboard()
+                        }
+                        Toggle("Virtual controller", isOn: $controls.visible)
+                        Button("Arrange virtual controls", systemImage: "slider.horizontal.3") {
+                            controls.visible = true; controls.editing = true; state.menu = false
+                        }
+                        Toggle("Open Big Picture next time", isOn: $state.autoStart)
+                        Button("Settings", systemImage: "gearshape") { showSettings = true }
+                        Text(["Controller: Keyboard", "Controller: Virtual controller", "Controller: Arrange controls", "Controller: Auto-start", "Controller: Settings", "Controller: Done"][selection]).font(.caption).foregroundStyle(.cyan)
+                        Button("Steam menu", systemImage: "line.3.horizontal") {
+                            state.menu = false
+                            winios_post_key(0x1B, 1); winios_post_key(0x1B, 0)
+                        }
+                        Text("Sign out in Steam to remove its saved login. Games and saves stay in this app.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(24).frame(maxWidth: 390).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+                        .padding(.top, max(geo.safeAreaInsets.top, 12)).padding(16)
+                } else {
+                    Button { state.menu = true } label: {
+                        Image(systemName: "line.3.horizontal").font(.title3.bold()).frame(width: 48, height: 48)
+                    }.buttonStyle(.plain).background(.regularMaterial, in: Circle())
+                        .accessibilityLabel("iDeck options")
+                        .padding(.top, max(geo.safeAreaInsets.top, 10)).padding(.trailing, max(geo.safeAreaInsets.trailing, 12))
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { state.menuRect = $0 }
+                }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.preferredColorScheme(.dark)
+        .onAppear { LibraryController.shared.configure(enabled: true, ownsInput: state.menu) }
+        .onChange(of: state.menu) { _, open in LibraryController.shared.configure(enabled: true, ownsInput: open) }
+        .onChange(of: controls.visible) { _, visible in
+            if visible && controls.controls.isEmpty {
+                ControlPresetsModel.shared.load(ControlPresetLayout.xboxID, screen: ControlPresetsModel.currentScreen(), reason: "ideck-first-overlay")
+            }
+        }
+        .sheet(isPresented: $showSettings) { AllSettingsView() }
+        .onReceive(LibraryController.shared.commands) { command in
+            if command == "menu" { state.menu.toggle() }
+            if command == "back" { state.menu = false }
+            if state.menu && !showSettings {
+                if command == "up" { selection = max(0, selection - 1) }
+                if command == "down" { selection = min(5, selection + 1) }
+                if command == "accept" { accept() }
+            }
+        }
+    }
+}
+#endif

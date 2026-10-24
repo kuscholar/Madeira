@@ -1,3 +1,15 @@
+# iDeck
+
+An experimental iPhone app built on [Madeira](https://github.com/willfaust/Madeira),
+with setup, genuine local Steam Big Picture and a floating input/options menu.
+See [iDeck setup, build and validation status](docs/IDECK.md).
+
+The working Madeira baseline remains on `main`; iDeck integration is isolated on
+`experiment/steam-big-picture`. This runs Windows Steam through Wine/FEX, not Linux
+SteamOS. Preserve all original Madeira/component licenses and attribution below.
+
+## Madeira foundation
+
 <p align="center">
   <img src="docs/assets/banner.png" alt="Madeira — Bringing PC gaming to your iPhone." width="100%">
 </p>

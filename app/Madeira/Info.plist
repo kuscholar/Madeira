@@ -11,8 +11,10 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>IDeckEnabled</key>
+	<true/>
 	<key>CFBundleDisplayName</key>
-	<string>Steam UI Lab</string>
+	<string>iDeck</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

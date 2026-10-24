@@ -1017,3 +1017,61 @@ Next discriminator: identify the fatal caller/failed crashpad contract, reproduc
 that contract in an isolated i386 test, and distinguish cleanup faults from the
 initial browser failure. Bluetooth, usable Big Picture and game launch/return
 remain unverified. Main/working gaming baseline remains untouched.
+
+
+### Build29 fatal-caller discriminator
+
+Observed Build28 INT3 belongs to a widely shared CEF fatal helper, so its address
+alone cannot identify the failed check. Build29 adds a read-only native handler
+probe gated by the lab session and the exact verified CEF126 i386 trap. It resolves
+the faulting thread's PEB/WoW window, walks at most eight increasing EBP frames
+with a one-MiB per-frame bound, and emits only CEF code RVAs; no stack payload,
+credentials or exception/protection behavior is changed. Parent native source
+only; no FEX/submodule edits. All37 native units and full Xcode build pass. Marker
+verified in final Madeira.debug.dylib (the main executable is its debug shim),
+plus deep strict signature verification. Device result pending. Private artifacts:
+steam-ui-fatal-build29/. Next read the caller and inspect the corresponding
+conditional/API contract before proposing a behavioral patch.
+
+
+Build29 actual result: genuine populated Big Picture home rendered after launch,
+with recent-game cards and news. Later a real game details/download page appeared;
+input source attribution and successful navigation require further validation.
+The authenticated session persisted across the app upgrade/restart without any
+agent credential entry. A stable snapshot through75.9seconds contains no guest
+INT3, no fatal-caller marker and no Crashpad no-response message. This contrasts
+with Build28 but the probe only reads memory: it is NOT evidence of a causal fix
+or reliable startup. Private logs/hash are in the redacted evidence file. Initial
+isolated steamapps inventory contains no installed-game appmanifest; the normal
+app's games/saves remain untouched. Awaiting direct user input check because
+Device Hub input delivery is still not established. Game execution/return and
+Bluetooth remain separate unverified gates.
+
+## iDeck product integration — Build30
+
+User explicitly confirms games run and changes the objective to an integrated
+iDeck app: first-run setup, Big Picture entry, persisted Steam login/auto-start,
+controller-first/direct-touch operation, floating keyboard/controller/options.
+This supersedes treating research diagnostics as the final end state.
+
+Build29 device observations additionally show Hot Roads' Unity splash and game
+menu, Steam tracked `hr.exe` as app1819280, and its private manifest has StateFlags4,
+build7695775, installed size221125214bytes. Game play is USER-REPORTED; menu and
+launch are artifact/visual observations. Return and Bluetooth are not verified.
+
+Build30 implements the isolated iDeck product shell and branding, explicit runtime
+preparation, existing JIT setup, readiness checks for registry plus four genuine
+32-bit PE components, persisted auto-start gated against every explicit diagnostic,
+full-screen landscape session and direct-touch mode. A window-level floating
+menu reuses keyboard, controller overlays/layout editing and settings. Existing
+controller routing owns input in launcher/menus and releases it in Steam. Login
+state remains in Valve's existing prefix, never exported or replaced.
+
+Production lifecycle/client-architecture tests, original launcher gates and
+keyboard routing pass locally. Full Xcode build passed; final signing/link checks
+are recorded in the private ideck-build30 artifacts. During the availability
+check, CoreDevice refused service/power assertions with error4016; installation
+and product UI validation remain pending. No phone restart, lock bypass or
+working-app changes were attempted. See IDECK.md for reproducible build/user flow
+and the full outstanding acceptance list. Main remains at ee9fd2f; research work
+continues on the isolated experiment branch.

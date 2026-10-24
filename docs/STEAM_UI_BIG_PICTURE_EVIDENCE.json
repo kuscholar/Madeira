@@ -54,5 +54,18 @@
       "saved_guest_return": "NtReleaseKeyedEvent stub; may be stale syscall return, not fault instruction"
     }
   },
-  "next_experiment": "Identify crashpad fatal caller and reproduce its specific failed contract in an isolated i386 PE before changing runtime behavior."
+  "next_experiment": "Identify crashpad fatal caller and reproduce its specific failed contract in an isolated i386 PE before changing runtime behavior.",
+  "build29": {
+    "hypothesis": "Fatal EBP frame chain identifies which CEF CHECK fails before Crashpad handshake timeout.",
+    "diagnostic": "lab session plus exact CEF126 trap gated, bounded 8-frame read from faulting thread WoW window; code RVAs only",
+    "native_build": "37/37 units pass",
+    "xcode_build": "PASS",
+    "linked_debug_macho_marker": "verified",
+    "signature": "deep strict verified",
+    "device_result": "Actual real Big Picture homepage rendered, populated recent-game/recommendation cards. Later game details/download view visible; physical vs remote input attribution pending.",
+    "native_snapshot_sha256": "f90bf0fdac8aef5b951a5ce7b48d0888995263ee26f95c7c7a4241cdcd728a13",
+    "native_snapshot_observation": "No CEF32 fatal caller probe, no guest INT3, no Crashpad no-response marker in 75.9-second snapshot. Diagnostic is read-only; do not claim it fixed the intermittent failure.",
+    "account_persistence": "Authenticated Big Picture populated after app upgrade/restart in same prefix, without new credential entry.",
+    "game_inventory": "Isolated Steam steamapps had no appmanifest at first inventory; main game prefix untouched."
+  }
 }

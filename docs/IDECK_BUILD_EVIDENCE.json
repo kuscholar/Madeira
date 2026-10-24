@@ -1,0 +1,25 @@
+{
+  "product": "iDeck",
+  "build": "30",
+  "bundle": "com.kuschqin.madeira.steamui",
+  "state": "signed; installation and UI validation pending CoreDevice4016",
+  "debug_macho_sha256": "624b43d374fdbad69856509f7e0757fab4e67f9f631a351a403884a5af8b08c5",
+  "local_checks": [
+    "full Xcode compile PASS",
+    "deep strict signature PASS",
+    "linked launcher/menu/keyboard markers verified",
+    "production readiness/architecture/autostart tests PASS",
+    "existing launcher and input routing regressions PASS",
+    "touch controller merge/lifecycle regression PASS",
+    "hardware keyboard/mouse/scan/focus regression PASS",
+    "gamepad ABI/concurrency/rumble regression PASS"
+  ],
+  "device_requirements_pending": [
+    "launcher/setup on ordinary launch",
+    "JIT handoff in product shell",
+    "full-screen Big Picture rendering",
+    "touch/controller navigation",
+    "floating menu keyboard/virtual pad/settings",
+    "play/return and relaunch persistence"
+  ]
+}

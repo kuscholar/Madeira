@@ -1256,6 +1256,8 @@ struct ContentView: View {
     }
     @State private var devSheet: SettingsSheet?
     @State private var steamUIStarting = false
+    @ObservedObject private var ideck = IDeckState.shared
+    @State private var ideckAdvanced = false
     @State private var automaticProbeRequested = false
     @StateObject private var logStore = LogStore.shared
     @StateObject private var jitCoordinator = JITCoordinator.shared
@@ -1293,7 +1295,12 @@ struct ContentView: View {
          * two-column selection behaviour. */
         NavigationStack {
             Group {
-                if library.enabled && library.current != nil {
+                if IDeckState.enabled && ideck.running {
+                    sessionBody.navigationBarHidden(true)
+                } else if IDeckState.enabled && !ideckAdvanced {
+                    IDeckLauncher(start: startIDeck, setupJIT: { jitCoordinator.showSetup = true },
+                                  diagnostics: { ideckAdvanced = true })
+                } else if library.enabled && library.current != nil {
                     sessionBody
                         .navigationBarHidden(true)
                 } else if library.enabled {
@@ -1303,7 +1310,12 @@ struct ContentView: View {
                     developerBody
                 }
             }
-            .navigationTitle("Madeira")
+            .toolbar {
+                if IDeckState.enabled && ideckAdvanced && !ideck.running {
+                    ToolbarItem(placement: .topBarLeading) { Button("iDeck") { ideckAdvanced = false } }
+                }
+            }
+            .navigationTitle(IDeckState.enabled ? "iDeck" : "Madeira")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.regularMaterial, for: .navigationBar)
             // The library keeps a material bar only before iOS 26. From iOS 26 the
@@ -1350,7 +1362,7 @@ struct ContentView: View {
             } message: { Text(library.cloudNotice?.message ?? "") }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 library.refreshFlag()
-                if library.enabled && library.current == nil { MetalHostView.shared.isHidden = true }
+                if !IDeckState.enabled && library.enabled && library.current == nil { MetalHostView.shared.isHidden = true }
             }
             .onAppear {
                 jit_install_trap_handler()
@@ -1375,6 +1387,14 @@ struct ContentView: View {
                 let automaticBigPicture = ProcessInfo.processInfo.arguments.contains("madeira-steam-big-picture-x86-experiment")
                 let automaticX86Client = automaticBigPicture || ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-x86-experiment")
                 let automaticSteamUI = automaticX86Client || ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-experiment")
+                if IDeckState.enabled && !automaticSteamUI && !automaticX86CEF && !automaticNativeVM && !automaticReservation && !automaticFLS {
+                    ideck.refresh()
+                    if IDeckRules.shouldAutoStart(setup: ideck.setupDone, ready: ideck.ready,
+                        automatic: ideck.autoStart, arguments: ProcessInfo.processInfo.arguments) && !automaticProbeRequested {
+                        automaticProbeRequested = true
+                        DispatchQueue.main.async { startIDeck() }
+                    }
+                }
                 if SteamUIExperiment.enabled, !automaticProbeRequested,
                    automaticX86CEF || automaticNativeVM || automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
                     automaticProbeRequested = true
@@ -3564,6 +3584,15 @@ struct ContentView: View {
         } catch { logStore.log("[steam-ui-probe] " + error.localizedDescription, level: .error) }
     }
 
+    private func startIDeck() {
+        guard !ideck.running, !jitCoordinator.busy, wine_process_is_running() == 0 else { return }
+        ideck.error = nil
+        UserDefaults.standard.set(true, forKey: "iDeckSetupComplete")
+        let launch = { startSteamUIExperiment(x86Client: true, bigPicture: true) }
+        if jit_check_debugged() && StikJITHelper.ready { launch() }
+        else { launchAfterJIT = launch; enableJIT() }
+    }
+
     private func startSteamUIExperiment(x86Client: Bool = false, bigPicture: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
@@ -3577,11 +3606,11 @@ struct ContentView: View {
                FileManager.default.fileExists(atPath: source.path) {
                 logStore.log("[steam-ui] importing bundled official x86 client into separate directory")
                 try SteamUIExperiment.importBundledX86(source: source, prefix: prefix,
-                    flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier)
+                    flag: MadeiraConfig.get(SteamUIExperiment.flag) ?? (IDeckState.enabled ? "1" : nil), bundleID: Bundle.main.bundleIdentifier)
             }
             let plan = try SteamUIExperiment.prepare(prefix: prefix, width: size.0, height: size.1,
-                flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, x86Client: x86Client, bigPicture: bigPicture,
-                bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag))
+                flag: MadeiraConfig.get(SteamUIExperiment.flag) ?? (IDeckState.enabled ? "1" : nil), bundleID: Bundle.main.bundleIdentifier, x86Client: x86Client, bigPicture: bigPicture,
+                bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag) ?? (IDeckState.enabled ? "1" : nil))
             steamUIStarting = true
             Task { @MainActor in
                 await SteamOwnedLibrary.shared.prepareDock() // close competing native CM connection; no token transfer
@@ -3598,10 +3627,19 @@ struct ContentView: View {
                 setenv("MADEIRA_SCREEN_H", String(plan.height), 1)
                 setenv("MADEIRA_JITLESS", "1", 1)
                 winios_display_mode_changed(Int32(plan.width), Int32(plan.height))
+                if IDeckState.enabled {
+                    InputSettings.shared.touchMode = true
+                    TouchControlsModel.shared.visible = false
+                    ideck.running = true
+                    GameSessionOrientation.setLandscapeLocked(true)
+                }
                 SteamUIEvidence.shared.start(prefix: prefix, bigPicture: bigPicture)
                 runWineFullSequence(steamUI: true)
             }
-        } catch { logStore.log("[steam-ui] " + error.localizedDescription, level: .error) }
+        } catch {
+            ideck.error = error.localizedDescription
+            logStore.log("[steam-ui] " + error.localizedDescription, level: .error)
+        }
     }
 
     private func prepareSteamLaunch() -> Bool {
@@ -4123,6 +4161,13 @@ final class ControlsWindow: UIWindow {
         // menu and starting screen take every touch; otherwise only its menu
         // button, its performance overlay and the touch controls do.
         let library = LibraryModel.shared
+        if IDeckState.enabled && IDeckState.shared.running {
+            if IDeckState.shared.menu || IDeckState.shared.menuRect.contains(point) {
+                return super.hitTest(point, with: event)
+            }
+            guard m.hitsInteractive(point, in: bounds, topBar: false) else { return nil }
+            return super.hitTest(point, with: event)
+        }
         if library.current != nil {
             if library.menu || library.launching || library.menuButtonRect.contains(point) ||
                 (library.performance && library.performanceRect.contains(point)) {
@@ -4171,6 +4216,7 @@ struct TouchControlsOverlay: View {
     @ObservedObject private var m = TouchControlsModel.shared
     @ObservedObject private var library = LibraryModel.shared
     @State private var pinchBase: Double?
+    @ObservedObject private var ideck = IDeckState.shared
 
     var body: some View {
         GeometryReader { geo in
@@ -4178,14 +4224,15 @@ struct TouchControlsOverlay: View {
             // A library session is full screen in either orientation, and its
             // HUD (menu button, starting screen, in-game menu) replaces the top
             // bar; the controls hide while its menu or starting screen is up.
-            let session = library.current != nil
+            let session = library.current != nil || (IDeckState.enabled && ideck.running)
             let landscape = geo.size.width > geo.size.height || session
             ZStack(alignment: .top) {
                 if landscape {
                     if (m.visible || m.editing) && !library.blocksGameplayTouch {
                         controls(geo.size, session: session)
                     }
-                    if session && !m.editing { LibraryHUD() } else { topBar }
+                    if IDeckState.enabled && ideck.running && !m.editing { IDeckHUD() }
+                    else if session && !m.editing { LibraryHUD() } else { topBar }
                     if m.editing, let i = m.index(of: m.selected) {
                         MappingPanel(control: m.controls[i], screen: geo.size)
                     }
@@ -4200,6 +4247,7 @@ struct TouchControlsOverlay: View {
             .onChange(of: m.visible) { _, _ in configureGamepad(landscape: landscape) }
             .onChange(of: m.editing) { _, _ in configureGamepad(landscape: landscape) }
             .onChange(of: library.blocksGameplayTouch) { _, _ in configureGamepad(landscape: landscape) }
+            .onChange(of: ideck.menu) { _, _ in configureGamepad(landscape: landscape) }
             .onDisappear { GamepadInput.shared.configureTouch(controls: []); TouchMouseGate.padOverlay = false }
         }
         .ignoresSafeArea()
@@ -4232,7 +4280,7 @@ struct TouchControlsOverlay: View {
             ? m.controls.filter { $0.action.padName.map(TouchPadAction.supported) ?? false }.map(\.id) : []
         // Menus and the control editor keep the pad connected but take no input (#204);
         // a touch that misses the controls is no mouse only while they do (#150).
-        let accepting = !m.editing && !library.blocksGameplayTouch
+        let accepting = !m.editing && !library.blocksGameplayTouch && !(IDeckState.enabled && ideck.menu)
         GamepadInput.shared.configureTouch(controls: Set(ids), acceptingInput: accepting)
         TouchMouseGate.padOverlay = accepting && !ids.isEmpty
     }

@@ -2016,6 +2016,39 @@ static void *ios_mach_exception_thread( void *arg )
                                     gn[gi + 1], (unsigned long long)gregs[gi + 1],
                                     gn[gi + 2], (unsigned long long)gregs[gi + 2],
                                     gn[gi + 3], (unsigned long long)gregs[gi + 3]);
+                        /* Lab-only CEF126 i386 fatal caller probe. Read the faulting
+                         * thread's own WoW window, not the Mach handler's current
+                         * process. Emit code RVAs only, never stack payloads. No
+                         * context, memory protection or exception policy changes. */
+                        if (grip == 0x6df3def4 &&
+                            getenv("MADEIRA_STEAM_UI_SESSION") &&
+                            !strcmp(getenv("MADEIRA_STEAM_UI_SESSION"), "1"))
+                        {
+                            uintptr_t ft = 0;
+                            void *tr = NULL, *peb = NULL;
+                            ULONG_PTR wb = 0;
+                            mach_vm_size_t read_size = 0;
+                            unsigned frame = (unsigned)gregs[5], depth;
+                            ios_lookup_thread(thread, &ft, &tr);
+                            if (ft && mach_vm_read_overwrite(mach_task_self(),
+                                ft + offsetof(TEB, Peb), sizeof(peb),
+                                (mach_vm_address_t)&peb, &read_size) == KERN_SUCCESS &&
+                                read_size == sizeof(peb)) wb = ios_wow_base_for_peb(peb);
+                            for (depth = 0; wb && depth < 8 && frame >= 0x10000 &&
+                                 frame <= 0xfffffff7U; depth++)
+                            {
+                                unsigned pair[2] = {0, 0};
+                                if (mach_vm_read_overwrite(mach_task_self(), wb + frame,
+                                    sizeof(pair), (mach_vm_address_t)pair, &read_size) != KERN_SUCCESS ||
+                                    read_size != sizeof(pair)) break;
+                                if (pair[1] >= 0x6aeb1000U && pair[1] < 0x745daa00U)
+                                    dprintf(STDERR_FILENO,
+                                        "[steam-ui-cef32-fatal] frame=%u libcef_rva=0x%x\n",
+                                        depth, pair[1] - 0x6aeb0000U);
+                                if (pair[0] <= frame || pair[0] - frame > 0x100000) break;
+                                frame = pair[0];
+                            }
+                        }
                         /* Host x0..x30 too: FEX's SRA mapping is not assumed anywhere
                          * here, so print both and identify the value offline. */
                         for (gi = 0; gi < 31; gi += 4)
