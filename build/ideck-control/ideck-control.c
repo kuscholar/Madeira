@@ -59,7 +59,11 @@ static int focus_steam(void) {
     return GetForegroundWindow()==steam_window || SetForegroundWindow(steam_window)!=0;
 }
 static UINT key(WORD vk,DWORD flags) {
-    INPUT input={0};input.type=INPUT_KEYBOARD;input.ki.wVk=vk;input.ki.dwFlags=flags;return SendInput(1,&input,sizeof(input));
+    INPUT input={0};input.type=INPUT_KEYBOARD;input.ki.wVk=vk;
+    /* CEF derives KeyboardEvent.code from the Windows scan code. Wine preserves
+     * a zero wScan for injected virtual keys; Ctrl+1 then has no Digit1 code. */
+    input.ki.wScan=(WORD)MapVirtualKeyW(vk,MAPVK_VK_TO_VSC);
+    input.ki.dwFlags=flags;return SendInput(1,&input,sizeof(input));
 }
 static void input_status(void) {
     typedef DWORD (WINAPI *GetState)(DWORD,XINPUT_STATE *);

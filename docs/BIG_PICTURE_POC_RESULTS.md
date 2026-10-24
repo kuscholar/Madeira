@@ -1445,3 +1445,21 @@ status xinput1/hid_gamepads1; hashes in IDECK_CONTROL_EVIDENCE.json. This is API
 enumeration, not Steam UI/button proof. Mac CUA reports locked; user drag/virtual
 navigation/Steam menu regression question pending. No agent account switch or
 new credential entry. Actual game-close/return and account-chooser UI still pending.
+
+### Build46 Steam menu scan-code experiment
+
+Base abf24db. User reports Build45 Steam menu still ineffective; no explicit
+result for drag/virtual navigation. Latest private ACK is no-game (exit action),
+so it cannot establish whether the earlier menu request dispatched. Exact shipped
+Steam UI TranslateKey uses event.code and maps ctrl+Digit1 to STEAM_GUIDE. Pinned
+Wine win32u/message.c passes KEYBDINPUT.wScan unchanged for virtual-key SendInput;
+helper supplied zero. Hypothesis: CEF gets no usable Digit1 physical key code.
+Minimal patch populates MapVirtualKeyW(VK, MAPVK_VK_TO_VSC) for fixed chord events,
+including releases. No Steam/CEF binary, native compatibility or auth changes.
+Full Xcode46, i386 Werror helper, deep strict signing and iDeck/launcher/keyboard
+host regressions pass. New bundled PE hash in IDECK_CONTROL_EVIDENCE.json; private
+build/sign/install artifacts in .madeira-install/ideck-build46. This is a single
+input-format experiment, not proof of root cause or actual menu opening. Next:
+physical on-device Steam menu click with corrected helper, then distinguish focus
+or modifier routing if still ineffective. Account switching and game return remain
+unverified; do not log out or force-close games for diagnostic convenience.
