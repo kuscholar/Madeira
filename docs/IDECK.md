@@ -77,8 +77,9 @@ reliable repeated startups. Build29's read-only fatal probe did not reproduce th
 Build28 failure; no causal stability fix is claimed.
 
 Build30 launcher/setup/full-screen/menu integration has local compile and host
-policy evidence. Installation and all product UI/device acceptance are pending
-until the phone is available. Test: launcher on normal open; setup preservation;
+policy evidence. Build30 is installed and an ordinary launch was independently confirmed alive
+on2026-10-24. Product UI/device acceptance remains pending manual Mac unlock
+for Device Hub control. Test: launcher on normal open; setup preservation;
 JIT handoff; true full-screen Big Picture; controller and direct touch navigation;
 floating menu keyboard/overlay/settings; licensed game play and return; app
 restart with saved login/auto-start. Do not mark the whole product complete from

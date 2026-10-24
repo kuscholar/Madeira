@@ -1101,3 +1101,25 @@ step requires physical connection/unlock, then identify any live lab process and
 install only the isolated bundle. Raw availability JSON stays private at
 ideck-build30/device-availability-final.json. Goal is blocked on that external
 gate until the user/device makes it available; recurring task may revalidate it.
+
+
+## 2026-10-24 — Build30 installation gate cleared
+
+Scheduled availability check found Kusch paired/available, no passcode required.
+Full process inventory contained no Madeira.app session (the attempted CLI
+CONTAINS predicate was invalid for its URL type; a complete inventory replaced
+that failed observation). Existing Build30 signature verified. Isolated install
+completed, installed app inventory confirms display iDeck/version30. Ordinary
+launch with no extra arguments succeeded; PID17464 independently remains alive.
+A private1172-byte startup log has build marker but no experimental/Steam/JIT
+launch markers, consistent with first-run launcher rather than diagnostic bypass;
+this is not visual launcher verification. Hash and limits in IDECK_BUILD_EVIDENCE.
+
+Device Hub still reports Mac locked; no manual unlock or credentials automated.
+Current app session preserved. Next: after manual Mac unlock, inspect launcher,
+complete setup/JIT through its own UI, validate fullscreen Big Picture and floating
+keyboard/controller/options, direct touch/controller navigation, auto-login reopen
+and game/return. Earlier gameplay remains user-reported/Build29 evidence, not a
+Build30 product validation. No runtime patch this run; original gaming app/main
+unchanged. Private artifacts: ideck-build30/install.json, installed-app.json,
+ordinary-launch.json, ordinary-process-alive.json and ordinary-launch-log.txt.
