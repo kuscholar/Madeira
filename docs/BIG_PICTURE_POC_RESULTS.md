@@ -1084,3 +1084,20 @@ attempt. A local lifecycle review found that LibraryModel.refreshFlag could rese
 controller ownership when returning from JIT into the iDeck launcher; iDeck now
 restores its own launcher/menu ownership instead, leaving ordinary Madeira logic
 unchanged. Device validation remains pending this external connection gate.
+
+### Build30 external-gate audit
+
+A further independent CoreDevice inventory still marks the exact target iPhone
+unavailable. This is the same connection/manual-unlock gate across three
+consecutive goal turns; no install/launch handle exists to poll. The prepared
+Build30 debug Mach-O SHA256 matches IDECK_BUILD_EVIDENCE.json. Deep strict
+signature verification succeeds with normal authorized keychain access (a
+sandbox-only trust evaluation failed; it does not establish a bad signature).
+Primary checkout remains clean. Installation and ordinary-launch setup, JIT,
+full-screen/controller/direct-touch/menu/keyboard/overlay, automatic-login reopen,
+game play and Steam return remain unverified for Build30. Do not manufacture
+new runtime fixes or claim product completion from local tests. The next useful
+step requires physical connection/unlock, then identify any live lab process and
+install only the isolated bundle. Raw availability JSON stays private at
+ideck-build30/device-availability-final.json. Goal is blocked on that external
+gate until the user/device makes it available; recurring task may revalidate it.
