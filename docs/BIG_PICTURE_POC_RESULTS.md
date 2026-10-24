@@ -1614,3 +1614,28 @@ POSIX60 and produced an empty file; do not infer absence of faults or process
 exit from it. Login/UI evidence hashes recorded. Keep session alive for physical
 UI confirmation; next discriminate whether home/library renders and navigation
 works before changing runtime again. No account re-login needed based on logs.
+
+### 2026-10-24 scheduled continuity check after standalone iDeck publication
+
+Research branch remains b6ea0dc, remote agrees; primary main ee9fd2f clean.
+User subsequently requested a standalone source copy/public repository at
+https://github.com/kuscholar/iDeck (FunProjects/iDeck), then a supplied icon and
+README changes. Latest standalone revision06d2efa. Its source snapshot retains
+this runtime fix and pins; no new successful runtime navigation is inferred.
+User-requested Build53 compiled from the standalone checkout, with local-only
+runtime resources and a CLI bundle-ID override to preserve existing isolated
+com.kuschqin.madeira.steamui data. Signed/installed/launched artifacts exist in
+.madeira-install/ideck-build53 (recorded PID23717, NOT a live identity). AppIcon
+compiled export visually inspected. README/icon changes add no functional proof.
+Public repo is source-only; its distribution/legal limitations remain explicit.
+
+Single fresh device availability check at scheduled21:16UTC failed CoreDevice4016
+(power/trusted connectivity usage assertions unavailable). No second availability
+poll, install, process interruption, credentials or lock bypass. This is not a
+crash or locked-device diagnosis. No new discriminating device experiment can be
+validated now. Previous user-visible runtime/UI question remains unanswered;
+Build51 saved auth/BrowserReady is still the last artifact-backed runtime gate,
+not usable UI. Next: fresh available device and actual current Build53 identity,
+then determine physical home/library response before another runtime patch.
+Preserve standalone iDeck main, original primary and active sessions. Do not use
+old PID21625/23717, stale research prompts or old build numbers as current state.
