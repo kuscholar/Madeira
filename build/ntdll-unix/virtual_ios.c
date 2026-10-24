@@ -32589,6 +32589,29 @@ NTSTATUS WINAPI NtReadVirtualMemory( HANDLE process, const void *addr, void *buf
         SERVER_END_REQ;
     }
 #ifdef WINE_IOS
+    /* Crashpad's original i386 CONTEXT, public control fields only. Return
+     * addresses identify the throwing API path; no arguments/text are logged. */
+    if (!status && process != GetCurrentProcess() && size == 716)
+    {
+        const char *lab = getenv("MADEIRA_STEAM_UI_SESSION");
+        unsigned control[50]; static unsigned context_samples;
+        memcpy(control, buffer, sizeof(control));
+        if (lab && !strcmp(lab, "1") && (control[0] & 0x10001U) == 0x10001U &&
+            control[46] == 0x7bc52f79U &&
+            __atomic_fetch_add(&context_samples,1,__ATOMIC_RELAXED) < 8)
+        {
+            ULONG_PTR base = (ULONG_PTR)addr & ~(ULONG_PTR)0xffffffffU;
+            unsigned frame=control[45], depth;
+            for(depth=0;depth<12 && frame>=0x10000 && frame<=0xfffffff7U;depth++)
+            {
+                unsigned pair[2];
+                if (NtReadVirtualMemory(process,(void *)(base+frame),pair,sizeof(pair),NULL)) break;
+                dprintf(2,"[steam-ui-throw32] frame=%u guest_return=0x%08x\n",depth,pair[1]);
+                if(pair[0]<=frame || pair[0]-frame>0x100000) break;
+                frame=pair[0];
+            }
+        }
+    }
     if (!status && process != GetCurrentProcess() && size == 80)
     {
         const char *lab = getenv("MADEIRA_STEAM_UI_SESSION");
@@ -32601,7 +32624,7 @@ NTSTATUS WINAPI NtReadVirtualMemory( HANDLE process, const void *addr, void *buf
             dprintf(2, "[steam-ui-remote-exception32] code=0x%08x guest_pc=0x%08x\n", code, pc);
             if (code == 0xe06d7363U)
             {
-                unsigned record[8], ti[4], ca[2], ct[2];
+                unsigned record[8], ti[4], ca[2], ct[7];
                 char type[64] = {0};
                 const char *category = "unknown";
                 unsigned stage = 0, type_hash = 2166136261U, k;
@@ -32628,6 +32651,23 @@ NTSTATUS WINAPI NtReadVirtualMemory( HANDLE process, const void *addr, void *buf
                     else type_hash = 0;
                 }
                 dprintf(2, "[steam-ui-cpp-exception32] category=%s stage=%u type_hash=%08x\n", category, stage, stage == 5 ? type_hash : 0);
+                /* Recognized libc++ i386 catchable type: 20-byte system_error,
+                 * public error_code at +12, confirmed by its PE copy constructor.
+                 * Read only the numeric code/category pair, never exception text. */
+                if (stage == 5 && type_hash == 0x0fa757d1U &&
+                    !strcmp(type, ".?AVsystem_error@__Cr@std@@") && ct[5] == 20 &&
+                    ct[6] >= 0x10000 && ct[6] <= 0xffffffbfU &&
+                    record[6] >= 0x10000 && record[6] <= 0xffffffebU)
+                {
+                    unsigned ec[2]; unsigned char copy[10];
+                    /* ASLR changes the guest module base. Validate the actual
+                     * copy instructions instead of assuming a fixed address. */
+                    static const unsigned char pattern[10] = {0xf2,0x0f,0x10,0x47,0x0c,0xf2,0x0f,0x11,0x46,0x0c};
+                    if (!NtReadVirtualMemory(process, (void *)(base + ct[6] + 0x2e), copy, sizeof(copy), NULL) &&
+                        !memcmp(copy, pattern, sizeof(copy)) &&
+                        !NtReadVirtualMemory(process, (void *)(base + record[6] + 12), ec, sizeof(ec), NULL))
+                        dprintf(2, "[steam-ui-system-error32] value=%d\n", (int)ec[0]);
+                }
             }
         }
     }

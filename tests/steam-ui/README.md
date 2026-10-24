@@ -561,3 +561,25 @@ Build35 failed defaults while explicit handles passed; Build36 per-process resol
 passes the same device test. Run `python3 tests/host/check-steam-ui-keyed-events.py`
 for the production resolver ASan/UBSan concurrent/isolation/capacity regression.
 This test does not prove CEF or library navigation stability; see latest POC results.
+
+### SwiftShader Vulkan initialization discriminator (prepared, not device-run)
+
+Compile `swiftshader32-probe.c` with the same pinned i686 LLVM-MinGW compiler:
+`i686-w64-mingw32-clang -O2 -Wall -Wextra -Werror -Wl,--no-insert-timestamp swiftshader32-probe.c -o swiftshader32-probe.exe`.
+Stage the PE at `drive_c/swiftshader32-probe.exe` in the isolated prefix; use a
+fresh isolated developer runtime launch `cmd.exe /c C:\swiftshader32-probe.exe`
+with existing authorized JIT workflow. No new automatic launcher argument is wired
+for this probe yet; do not mistake the keyed-event argument for this program.
+The program expects the existing official client at
+`C:\Steam32BundleLab\bin\cef\cef.win7\vk_swiftshader.dll`, creates a Vulkan1.0
+instance/device, then destroys them. It does not replace or patch the ICD.
+Read `drive_c/madeira-swiftshader32-results.txt`. Output before each Vulkan call
+allows an unhandled original failure to be distinguished from successful return;
+its VEH prints only recognized exception codes and continues exception search.
+A successful compile is not a Vulkan test result. Current status: prepared only.
+
+Build40's separate browser A/B uses `--disable-software-rasterizer`, isolated-session
+only. `env.MADEIRA_STEAM_UI_NO_SWIFTSHADER=0` restores the previous browser policy.
+Run `python3 tests/host/check-steam-ui-software-3d.py` for production policy ASan/UBSan
+coverage. Confirm the actual native policy marker AND loaded modules/UI on phone;
+the flag's presence in the binary is not proof Steam honored it.

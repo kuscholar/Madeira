@@ -1892,6 +1892,18 @@ NTSTATUS WINAPI NtCreateUserProcess( HANDLE *process_handle_ptr, HANDLE *thread_
                 dprintf(2, "[proc-gate] V8 %s (MADEIRA_JITLESS=%s) rev=ml526\n",
                         jitless_on ? "JITLESS (interpreted)" : "JIT ENABLED — #82 retest",
                         jl ? jl : "unset");
+                /* Isolated A/B: SwiftShader std::thread creation threw public
+                 * system_error(87). Disable only the 3D software fallback;
+                 * Chromium's normal software compositor remains available. */
+                const char *software = getenv("MADEIRA_STEAM_UI_NO_SWIFTSHADER");
+                int no_swiftshader = steam_ui && !(software && !strcmp(software,"0"));
+                char ui_switches[512];
+                if (no_swiftshader)
+                {
+                    snprintf(ui_switches,sizeof(ui_switches),"%s --disable-software-rasterizer",sp);
+                    sp=ui_switches;
+                    dprintf(2,"[steam-ui-process] software-3d-fallback=disabled\n");
+                }
                 static const char dfs[] = "--disable-features=";
                 /* ml426 (#70): + segmentation-platform features. Four CreateBrowser
                  * runs died C00000FD in the CreateResponse→BrowserReady gap, and

@@ -29,7 +29,7 @@
     "same PID17634 alive after reported freeze",
     "no STATUS_NO_MEMORY/bad_alloc/pool exhaustion marker in sampled hang log"
   ],
-  "next_discriminator": "user library-navigation regression and determine public system_error code/throw caller with bounded metadata, without exception message or auth payload",
+  "next_discriminator": "After native phone unlock launch installed Build40 once, verify actual policy marker, whether SwiftShader loads/throws, genuine UI rendering/navigation. If still failing, run isolated official SwiftShader Vulkan init probe and instrument actual CreateThread early failure; do not suppress C++/Crashpad assertions.",
   "build32": {
     "ordinary_start": "JIT and genuine Big Picture launch markers present with no extra arguments",
     "native_snapshot_sha256": "f5ca975bd1393846ccbc242c495b2454e0ef63fab2e77b34c662df2ef50a904f",
@@ -89,7 +89,61 @@
     "rtti_fingerprint": "0fa757d1",
     "secondary_assertion": "vector-front-empty",
     "interpretation": "additional original C++ system_error persists; keyed-event test success is not Steam stability proof",
-    "ui_validation": "pending user library navigation test; Mac control tool reports locked",
+    "ui_validation": "USER reports did not enter Big Picture; previous pending navigation test not completed",
     "later_log_copy": "CoreDevice7000/POSIX60; exact lab PID independently remains alive; not proof of crash"
+  },
+  "build37": {
+    "purpose": "read numeric system_error after exact RTTI/size/copy address checks",
+    "result": "original system_error reproduced, fixed copy address gate emitted no error value",
+    "limitation": "fixed guest address cannot be assumed across launches; replace with actual copy instruction verification"
+  },
+  "build38": {
+    "error_value": 87,
+    "meaning": "ERROR_INVALID_PARAMETER",
+    "log_sha256": "a99b05628f8c6d4955ddfef2a57f55e353855e34a6266b64449ca21875d02bbf",
+    "method": "exact public libc++ type/size and actual copy instruction pattern; numeric code only",
+    "limitation": "shared libc++ type and copy bytes do not identify owning module"
+  },
+  "build39": {
+    "throw_context": "public original i386 CONTEXT, bounded EBP code returns",
+    "returns": [
+      "0x68104df5",
+      "0x68148ca4",
+      "0x68148c63",
+      "0x67e3803b",
+      "0x67e1d450",
+      "0x67e3d54e",
+      "0x67e3d407",
+      "0x682d758d",
+      "0x682d8503",
+      "0x682d7c70",
+      "0x682df7e4",
+      "0x68537b85"
+    ],
+    "module": "vk_swiftshader.dll",
+    "actual_guest_base": "0x67e10000",
+    "thread_site_rva": "0x2803b",
+    "thread_helper_rva": "0x339b70",
+    "error": 87,
+    "interpretation": "SwiftShader thread-construction failure; underlying failing API/status still unknown. CRT helper calls CreateThread and can also fail before that call. Error may reflect stale GetLastError if earlier allocation failed.",
+    "correction": "cef_base=0x62857c30 in Build39 log was an invalid inference from a non-unique copy constructor pattern. It is NOT a module base. Removed in Build40; module ownership comes from loader trace and PE disassembly.",
+    "log_sha256": "10c3161fa9f5ceb71e8a046b686d6f30e2a4b2d7789dec56131b9c61c892e203",
+    "swiftshader_sha256": "9eadc24a8993b354a76b92d794a7804f34400357a0a826b105d294054ed05529"
+  },
+  "build40": {
+    "hypothesis": "browser 3D fallback triggers failing SwiftShader thread initialization; disabling that fallback may preserve genuine software-composited Steam UI",
+    "minimal_patch": "append official Chromium --disable-software-rasterizer only for isolated Steam UI session; MADEIRA_STEAM_UI_NO_SWIFTSHADER=0 opts out for A/B",
+    "official_source": "https://chromium.googlesource.com/chromium/src/+/126.0.6478.183/content/public/common/content_switches.cc",
+    "official_source_sha256": "b344a019e583dca32550a14e39792487c1ebbf73635940db3fa96034685da947",
+    "native_build": "37 units passed",
+    "xcode_build": "passed",
+    "final_linked_marker": "software-3d-fallback=disabled in Madeira.debug.dylib",
+    "debug_macho_sha256": "d4310543442c25e650c4ef1ba50f1cc6c81602b1bb6bf41c9cec54583b06c3d9",
+    "deep_strict_signing": "passed",
+    "install": "succeeded in existing isolated app bundle",
+    "launch": "refused: CoreDevice10002 / FBS Locked; no lock bypass or repeated launch",
+    "device_validation": "NOT RUN; no claim flag honored or UI improved",
+    "host_policy": "ASan/UBSan production fragment test passes isolated default, opt-out, ordinary path, existing switches",
+    "independent_probe": "swiftshader32-probe.c compiles as i386 with -Wall -Wextra -Werror and ABI static assertions; vkCreateInstance/vkCreateDevice test NOT executed"
   }
 }

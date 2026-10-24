@@ -1239,3 +1239,66 @@ from object offset12 (runtime_error base occupies12 bytes). This gives a precise
 next diagnostic: after exact type/version/size checks, read only numeric error
 value and public category identity, never runtime_error text. No such device
 error-code reading has been performed yet; no guess of EPERM/ENOMEM is evidence.
+
+### Build36 startup regression and bounded system_error discriminator
+
+User reports Build36 did not enter Big Picture. Actual current PID17843 remained
+alive; private failed-start.txt records repeated C++ system_error. This supersedes
+the pending navigation question, and is not a stable-launch pass. Build37 exact
+copy-address gate emitted no error value despite successful RTTI decoding. Build38
+instead verifies the actual10-byte public copy instruction pattern after exact
+type and20-byte catchable-size checks, avoiding a fixed guest load address. It
+reads only the8-byte numeric error_code, never exception message/credentials.
+Actual device Build38 reports value87 (Windows ERROR_INVALID_PARAMETER); no
+particular failing API is identified by that number alone. Build39 adds bounded
+original i386 CONTEXT/EBP return-address capture for the known RaiseException PC;
+only code addresses, at most8contexts/12frames, no stack arguments/text. All37
+native units/fullXcode and final linked diagnostic/signature checks pass.
+Do not conflate this with a runtime fix or suppress the secondary Crashpad trap.
+
+### Build39 module ownership and Build40 browser-only software-3D A/B
+
+Build39 original CONTEXT return chain matches vk_swiftshader.dll, actual guest
+base0x67e10000, NOT libcef: returns include SwiftShader+0x2803b (thread constructor)
+and+0x338c63/+0x338ca4 (system_error throw helpers). Exact official DLL SHA256
+9eadc24a8993b354a76b92d794a7804f34400357a0a826b105d294054ed05529.
+PE disassembly at+0x27fe6 calls thread helper+0x339b70, branches on nonzero error,
+then throws. The CRT helper invokes CreateThread and may also fail before it.
+Thus87 is not yet proof of NtCreateThreadEx's actual failing status; GetLastError
+could be stale after an earlier CRT allocation failure. No sole root cause claim.
+
+CORRECTION: Build39's inferred cef_base0x62857c30 was invalid. libc++ types and copy
+patterns are shared across modules; subtracting a CEF-specific RVA from a
+SwiftShader constructor cannot identify its module. Removed that inferred field
+in Build40. Public numeric error87 remains valid under type/size/copy verification;
+module ownership now comes from loader evidence and exact PE code correspondence.
+
+One hypothesis / discriminator: browser 3D software fallback triggers this failing
+SwiftShader initialization. Build40 appends Chromium126's official
+--disable-software-rasterizer only under MADEIRA_STEAM_UI_SESSION=1. Existing
+software composition and ordinary game GPU paths are preserved in source; actual
+Steam UI availability is NOT assumed. env.MADEIRA_STEAM_UI_NO_SWIFTSHADER=0 opts
+out for A/B. Official source content/public/common/content_switches.cc revision
+126.0.6478.183 defines this as disabling a3D software rasterizer; source SHA256
+b344a019e583dca32550a14e39792487c1ebbf73635940db3fa96034685da947.
+No Valve files or FEX were modified. The original failing thread API is still
+unrepaired; this is an isolated browser policy experiment, not a general fix.
+
+All37 native units/full Xcode Build40/final debug dylib marker/deep strict signing
+pass. Host ASan/UBSan executes the production policy fragment for ordinary path,
+isolated default, explicit opt-out and preservation of existing switches. Launcher,
+exception metadata and Crashpad policy checks pass. Build40 installed successfully
+in existing isolated iDeck, retaining Steam login/games/saves. Its ordinary launch
+was refused by the device lock (CoreDevice10002/FBS Locked); do not repeat it while
+locked. No device UI/rendering/switch-effect validation exists for Build40 yet.
+Private evidence ideck-build37..40/, redacted hashes in IDECK_CEF_FREEZE_EVIDENCE.json.
+Primary main remains ee9fd2f; scoped parent a428172, no submodule edits.
+
+Independent next fallback: swiftshader32-probe.c loads the existing official DLL
+and invokes Vulkan1.0 instance/device creation without CEF/network/login. Win32 ABI
+static assertions and i686 compile with -Wall -Wextra -Werror pass; PE i386 verified.
+It only observes exception codes and never handles/suppresses them. It has NOT
+run on phone. After unlock first test already-installed Build40 once; check policy
+marker, SwiftShader load/throw and real Big Picture navigation. If ineffective,
+run isolated Vulkan probe and instrument early CreateThread/CRT failure with numeric
+status only. Do not call build success a rendering or stability result.
