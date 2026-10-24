@@ -1317,3 +1317,20 @@ justified before that discriminator. Next after native unlock: launch Build40
 once, verify actual policy/module/exception evidence and genuine UI behavior;
 only if ineffective proceed to the prepared isolated Vulkan probe. No repeated
 user notification for this unchanged gate.
+
+### 2026-10-24 user-requested Build40 installation
+
+Device now reports passcodeRequired=false. Signature deep/strict verification and
+exact final debug Mach-O hash d4310543442c25e650c4ef1ba50f1cc6c81602b1bb6bf41c9cec54583b06c3d9
+match the prepared Build40; no source rebuild was needed after doc-only eceddd0.
+No lab process was running before install. Reinstallation into the existing lab
+bundle succeeded; ordinary no-argument launch succeeded, PID20471. Initial live
+log confirms actual build40 but is too early for policy/CEF/UI conclusions.
+Private user-install/user-launch/user-first-log evidence in ideck-build40/.
+Main/working app/auth/games preserved. Next collect policy/module/error evidence
+and user-visible Big Picture/library behavior before claiming a fix.
+Subsequent startup log remains at native startup/frontend configuration, without
+Steam/JIT/policy markers; no automatic Steam launch is established. Mac CUA still
+reports locked, so direct GUI inspection is unavailable. Leave installed PID20471
+undisturbed for the user to open iDeck/start Big Picture. This is successful app
+installation/launch, not successful CEF or game validation.

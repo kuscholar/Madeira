@@ -144,6 +144,15 @@
     "launch": "refused: CoreDevice10002 / FBS Locked; no lock bypass or repeated launch",
     "device_validation": "NOT RUN; no claim flag honored or UI improved",
     "host_policy": "ASan/UBSan production fragment test passes isolated default, opt-out, ordinary path, existing switches",
-    "independent_probe": "swiftshader32-probe.c compiles as i386 with -Wall -Wextra -Werror and ABI static assertions; vkCreateInstance/vkCreateDevice test NOT executed"
+    "independent_probe": "swiftshader32-probe.c compiles as i386 with -Wall -Wextra -Werror and ABI static assertions; vkCreateInstance/vkCreateDevice test NOT executed",
+    "user_requested_install_2026_10_24": {
+      "signature": "deep strict verification passed",
+      "debug_macho_sha256": "d4310543442c25e650c4ef1ba50f1cc6c81602b1bb6bf41c9cec54583b06c3d9",
+      "device_lock": "passcodeRequired=false before install",
+      "install": "succeeded",
+      "ordinary_launch": "succeeded, PID20471",
+      "initial_log": "actual build40 confirmed; too early for browser policy/UI result",
+      "limitations": "no Big Picture or stability success inferred from launch"
+    }
   }
 }
