@@ -1302,3 +1302,18 @@ run on phone. After unlock first test already-installed Build40 once; check poli
 marker, SwiftShader load/throw and real Big Picture navigation. If ineffective,
 run isolated Vulkan probe and instrument early CreateThread/CRT failure with numeric
 status only. Do not call build success a rendering or stability result.
+
+### 2026-10-24 11:15 UTC checkpoint — existing device gate unchanged
+
+Research HEAD/origin experiment f8a7511cddc14ab07752d30ee7327e84715c4038;
+origin/main and clean primary ee9fd2f4c21229dfce31a25c211d44df267336d8.
+Read latest freeze evidence and checked lockState once: passcodeRequired=true,
+unlockedSinceBoot=true. Private ideck-build40/heartbeat-lock.json SHA256
+fb166a2234f762db1ebcd5688e166a82aad2b0cd66419783d3ba7dabe969e300.
+No launch/install, credential entry, lock bypass, or overlapping experiment was
+attempted. Build40 remains the already-installed pending browser-policy test;
+there is no new device or UI result. No runtime patch or repeated build/test was
+justified before that discriminator. Next after native unlock: launch Build40
+once, verify actual policy/module/exception evidence and genuine UI behavior;
+only if ineffective proceed to the prepared isolated Vulkan probe. No repeated
+user notification for this unchanged gate.
