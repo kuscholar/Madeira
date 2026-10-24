@@ -1075,3 +1075,12 @@ and product UI validation remain pending. No phone restart, lock bypass or
 working-app changes were attempted. See IDECK.md for reproducible build/user flow
 and the full outstanding acceptance list. Main remains at ee9fd2f; research work
 continues on the isolated experiment branch.
+
+
+Build30 pre-install continuation: CoreDevice still rejects service assertions4016;
+Device Hub independently reports the Mac locked and requires manual unlock. User
+asked once to unlock Mac/iPhone and connect it. No lock bypass or repeated install
+attempt. A local lifecycle review found that LibraryModel.refreshFlag could reset
+controller ownership when returning from JIT into the iDeck launcher; iDeck now
+restores its own launcher/menu ownership instead, leaving ordinary Madeira logic
+unchanged. Device validation remains pending this external connection gate.

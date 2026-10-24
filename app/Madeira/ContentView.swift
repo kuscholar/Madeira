@@ -1361,8 +1361,12 @@ struct ContentView: View {
                 }
             } message: { Text(library.cloudNotice?.message ?? "") }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                library.refreshFlag()
-                if !IDeckState.enabled && library.enabled && library.current == nil { MetalHostView.shared.isHidden = true }
+                if IDeckState.enabled {
+                    LibraryController.shared.configure(enabled: true, ownsInput: !ideck.running || ideck.menu)
+                } else {
+                    library.refreshFlag()
+                    if library.enabled && library.current == nil { MetalHostView.shared.isHidden = true }
+                }
             }
             .onAppear {
                 jit_install_trap_handler()
