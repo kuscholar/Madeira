@@ -1384,6 +1384,7 @@ struct ContentView: View {
                 DockReset.baselineProvider = { DockReset.templateRegistry { madeira_extract_prefix_tgz($0, $1) } }
                 // Explicit developer arguments only; ordinary launch starts nothing.
                 // Reuse the normal paired JIT flow for controlled remote tests.
+                let automaticKeyedEvent = ProcessInfo.processInfo.arguments.contains("madeira-keyed-event-diagnostics")
                 let automaticX86CEF = ProcessInfo.processInfo.arguments.contains("madeira-x86-cef-diagnostics")
                 let automaticNativeVM = ProcessInfo.processInfo.arguments.contains("madeira-native-vm-diagnostics")
                 let automaticReservation = ProcessInfo.processInfo.arguments.contains("madeira-reservation-diagnostics")
@@ -1400,13 +1401,13 @@ struct ContentView: View {
                     }
                 }
                 if SteamUIExperiment.enabled, !automaticProbeRequested,
-                   automaticX86CEF || automaticNativeVM || automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
+                   automaticKeyedEvent || automaticX86CEF || automaticNativeVM || automaticReservation || automaticSteamUI || automaticFLS || ProcessInfo.processInfo.arguments.contains("madeira-runtime-diagnostics") {
                     automaticProbeRequested = true
                     DispatchQueue.main.async {
                         launchAfterJIT = {
                             if automaticNativeVM { startSteamUINativeVMProbe() }
                             else if automaticSteamUI { startSteamUIExperiment(x86Client: automaticX86Client, bigPicture: automaticBigPicture) }
-                            else { startSteamUIProbe(fls: automaticFLS, reservation: automaticReservation, x86CEF: automaticX86CEF) }
+                            else { startSteamUIProbe(fls: automaticFLS, reservation: automaticReservation, x86CEF: automaticX86CEF, keyedEvent: automaticKeyedEvent) }
                         }
                         enableJIT()
                     }
@@ -3570,7 +3571,7 @@ struct ContentView: View {
         logStore.log("[native-vm] completed code=\(result); see steam-ui-native-vm-results.txt; no CEF validation")
     }
 
-    private func startSteamUIProbe(fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false) {
+    private func startSteamUIProbe(fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false, keyedEvent: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
             logStore.log("[steam-ui-probe] launch refused: fresh isolated JIT session required", level: .error)
@@ -3578,7 +3579,7 @@ struct ContentView: View {
         }
         let prefix = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("wine")
         do {
-            let args = try SteamUIExperiment.prepareProbe(prefix: prefix, flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, fls: fls, reservation: reservation, x86CEF: x86CEF)
+            let args = try SteamUIExperiment.prepareProbe(prefix: prefix, flag: MadeiraConfig.get(SteamUIExperiment.flag), bundleID: Bundle.main.bundleIdentifier, fls: fls, reservation: reservation, x86CEF: x86CEF, keyedEvent: keyedEvent)
             steamUIStarting = true
             setenv("MADEIRA_EXE", "cmd.exe", 1)
             setenv("MADEIRA_ARGS", args, 1)

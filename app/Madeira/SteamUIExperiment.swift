@@ -18,9 +18,13 @@ enum SteamUIExperiment {
         let productDefault = Bundle.main.object(forInfoDictionaryKey: "IDeckEnabled") as? Bool == true ? "1" : nil
         return allowed(flag: MadeiraConfig.get(flag) ?? productDefault, bundleID: Bundle.main.bundleIdentifier)
     }
-    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false) throws -> String {
+    static func prepareProbe(prefix: URL, flag: String?, bundleID: String?, fls: Bool = false, reservation: Bool = false, x86CEF: Bool = false, keyedEvent: Bool = false) throws -> String {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         let drive = prefix.appendingPathComponent("drive_c")
+        if keyedEvent {
+            guard isX86PE(drive.appendingPathComponent("steam-ui-keyed-event32.exe")) else { throw Failure.incompleteProbe }
+            return "/c C:\\steam-ui-keyed-event32.exe"
+        }
         if reservation {
             guard isX64PE(drive.appendingPathComponent("steam-ui-reservation-probe.exe")) else { throw Failure.incompleteProbe }
             let batch = "@echo off\r\necho reservation-diagnostic-begin > C:\\madeira-reservation-results.txt\r\nC:\\steam-ui-reservation-probe.exe --isolated-reserve-only >> C:\\madeira-reservation-results.txt 2>&1\r\necho reservation-exit=%errorlevel% >> C:\\madeira-reservation-results.txt\r\n"

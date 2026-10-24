@@ -546,3 +546,18 @@ login-only. Preserve the existing prefix to test legitimate account persistence.
 Compare with the observed desktop-to-Big-Picture loading stall, without changing
 other options or patching Valve code. Require actual navigation/library/game
 results; a startup background, BrowserReady or a successful build is insufficient.
+
+### i386 default keyed-event / InitOnce discriminator
+
+Build `keyed-event32-probe.c` with the pinned local LLVM-MinGW
+`i686-w64-mingw32-clang -O2 -Wl,--no-insert-timestamp`, stage the executable as
+`drive_c/steam-ui-keyed-event32.exe` in the isolated iDeck prefix, and launch with
+`madeira-keyed-event-diagnostics`. This explicit argument excludes auto-Steam start
+and uses the existing paired JIT flow. Read `drive_c/madeira-keyed-event32-results.txt`.
+The PE writes no account data, compares default versus explicit keyed events, and
+only runs contended InitOnce after both basic contracts pass. Zero-timeout unmatched
+wait/release must return0x102; object-type-mismatch0xc0000024 is a failure.
+Build35 failed defaults while explicit handles passed; Build36 per-process resolver
+passes the same device test. Run `python3 tests/host/check-steam-ui-keyed-events.py`
+for the production resolver ASan/UBSan concurrent/isolation/capacity regression.
+This test does not prove CEF or library navigation stability; see latest POC results.

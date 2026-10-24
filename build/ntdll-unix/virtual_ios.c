@@ -32518,6 +32518,41 @@ NTSTATUS WINAPI NtResetWriteWatch( HANDLE process, PVOID base, SIZE_T size )
  *             NtReadVirtualMemory   (NTDLL.@)
  *             ZwReadVirtualMemory   (NTDLL.@)
  */
+/* Public standard C++ categories, including Chromium libc++ ABI namespaces. */
+static const char *ios_steam_ui_cpp_category( const char *name )
+{
+    static const char *types[] = { "bad_alloc", "bad_array_new_length", "length_error",
+                                  "out_of_range", "runtime_error", "logic_error", "system_error" };
+    unsigned i;
+    if (strncmp(name, ".?AV", 4) && strncmp(name, ".?AU", 4)) return "unknown";
+    for (i = 0; i < sizeof(types) / sizeof(types[0]); i++)
+    {
+        size_t len = strlen(types[i]);
+        if (!strncmp(name + 4, types[i], len) && name[4 + len] == '@' &&
+            strstr(name + 5 + len, "std@@")) return types[i];
+    }
+    return "unknown";
+}
+
+/* Lab diagnostic: decode only the public metadata of a recognized i386
+ * exception record. Never log record parameters, stack bytes or strings. */
+static int ios_steam_ui_exception32_metadata( const void *data, SIZE_T size,
+                                            unsigned *code, unsigned *pc )
+{
+    unsigned fields[5];
+    if (size != 80) return 0;
+    memcpy(fields, data, sizeof(fields));
+    if (fields[4] > 15) return 0;
+    switch (fields[0])
+    {
+    case 0xc0000005U: case 0x80000003U: case 0xc000001dU:
+    case 0xc00000fdU: case 0xc0000374U: case 0xc0000409U:
+    case 0xe06d7363U: case 0x0517a7edU: case 0xe0000001U:
+        *code = fields[0]; *pc = fields[3]; return 1;
+    default: return 0;
+    }
+}
+
 NTSTATUS WINAPI NtReadVirtualMemory( HANDLE process, const void *addr, void *buffer,
                                      SIZE_T size, SIZE_T *bytes_read )
 {
@@ -32553,6 +32588,50 @@ NTSTATUS WINAPI NtReadVirtualMemory( HANDLE process, const void *addr, void *buf
         }
         SERVER_END_REQ;
     }
+#ifdef WINE_IOS
+    if (!status && process != GetCurrentProcess() && size == 80)
+    {
+        const char *lab = getenv("MADEIRA_STEAM_UI_SESSION");
+        unsigned code, pc;
+        static unsigned samples;
+        if (lab && !strcmp(lab, "1") &&
+            ios_steam_ui_exception32_metadata(buffer, size, &code, &pc) &&
+            __atomic_fetch_add(&samples, 1, __ATOMIC_RELAXED) < 16)
+        {
+            dprintf(2, "[steam-ui-remote-exception32] code=0x%08x guest_pc=0x%08x\n", code, pc);
+            if (code == 0xe06d7363U)
+            {
+                unsigned record[8], ti[4], ca[2], ct[2];
+                char type[64] = {0};
+                const char *category = "unknown";
+                unsigned stage = 0, type_hash = 2166136261U, k;
+                ULONG_PTR base = (ULONG_PTR)addr & ~(ULONG_PTR)0xffffffffU;
+                memcpy(record, buffer, sizeof(record));
+                /* MSVC x86 RTTI pointers belong to the target's WoW window.
+                 * Only public standard exception categories are emitted. */
+                if (record[4] >= 3 && record[5] >= 0x19930520U && record[5] <= 0x19930522U && record[7] >= 0x10000 &&
+                    (stage = 1, !NtReadVirtualMemory(process, (void *)(base + record[7]), ti, sizeof(ti), NULL)) &&
+                    ti[3] >= 0x10000 &&
+                    (stage = 2, !NtReadVirtualMemory(process, (void *)(base + ti[3]), ca, sizeof(ca), NULL)) &&
+                    ca[0] > 0 && ca[0] <= 32 && ca[1] >= 0x10000 &&
+                    (stage = 3, !NtReadVirtualMemory(process, (void *)(base + ca[1]), ct, sizeof(ct), NULL)) &&
+                    ct[1] >= 0x10000 && ct[1] <= 0xffffffb7U &&
+                    (stage = 4, !NtReadVirtualMemory(process, (void *)(base + ct[1] + 8), type, sizeof(type) - 1, NULL)))
+                {
+                    stage = 5;
+                    category = ios_steam_ui_cpp_category(type);
+                    /* Fingerprint only syntactically valid public RTTI names;
+                     * no arbitrary bytes, names or exception message emitted. */
+                    if (!strncmp(type, ".?A", 3))
+                        for (k = 0; k < sizeof(type) - 1 && type[k]; k++)
+                            type_hash = (type_hash ^ (unsigned char)type[k]) * 16777619U;
+                    else type_hash = 0;
+                }
+                dprintf(2, "[steam-ui-cpp-exception32] category=%s stage=%u type_hash=%08x\n", category, stage, stage == 5 ? type_hash : 0);
+            }
+        }
+    }
+#endif
     if (bytes_read) *bytes_read = size;
     return status;
 }

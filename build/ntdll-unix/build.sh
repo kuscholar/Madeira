@@ -183,6 +183,9 @@ for src in $WINE_SRC/dlls/ntdll/unix/*.c; do
         cdrom)
             compile_one "$BUILD_DIR/cdrom_stub.c" "cdrom"
             ;;
+        sync)
+            compile_one "$BUILD_DIR/sync_ios.c" "sync"
+            ;;
         virtual)
             compile_one "$BUILD_DIR/virtual_ios.c" "virtual"
             ;;

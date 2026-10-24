@@ -2035,12 +2035,22 @@ static void *ios_mach_exception_thread( void *arg )
                                 (mach_vm_address_t)&peb, &read_size) == KERN_SUCCESS &&
                                 read_size == sizeof(peb)) wb = ios_wow_base_for_peb(peb);
                             for (depth = 0; wb && depth < 8 && frame >= 0x10000 &&
-                                 frame <= 0xfffffff7U; depth++)
+                                 frame <= 0xffffffefU; depth++)
                             {
-                                unsigned pair[2] = {0, 0};
+                                unsigned pair[4] = {0, 0, 0, 0};
                                 if (mach_vm_read_overwrite(mach_task_self(), wb + frame,
                                     sizeof(pair), (mach_vm_address_t)pair, &read_size) != KERN_SUCCESS ||
                                     read_size != sizeof(pair)) break;
+                                if (depth == 0) {
+                                    /* Only known immutable CEF assertion constants;
+                                     * never decode arbitrary stack strings. */
+                                    const char *kind = "unknown";
+                                    if (pair[3] == 0x6aeb0000U + 0x999c340U) kind = "vector-front-empty";
+                                    else if (pair[3] == 0x6aeb0000U + 0x9999a8cU) kind = "destroy-null";
+                                    else if (pair[3] == 0x6aeb0000U + 0x9999bb0U) kind = "construct-null";
+                                    else if (pair[3] == 0x6aeb0000U + 0x99a92bbU) kind = "vector-back-empty";
+                                    dprintf(STDERR_FILENO, "[steam-ui-cef32-fatal] assertion=%s\n", kind);
+                                }
                                 if (pair[1] >= 0x6aeb1000U && pair[1] < 0x745daa00U)
                                     dprintf(STDERR_FILENO,
                                         "[steam-ui-cef32-fatal] frame=%u libcef_rva=0x%x\n",

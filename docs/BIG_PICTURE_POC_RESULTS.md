@@ -1123,3 +1123,119 @@ and game/return. Earlier gameplay remains user-reported/Build29 evidence, not a
 Build30 product validation. No runtime patch this run; original gaming app/main
 unchanged. Private artifacts: ideck-build30/install.json, installed-app.json,
 ordinary-launch.json, ordinary-process-alive.json and ordinary-launch-log.txt.
+
+
+## Build30 black screen / Build31 library freeze / Build32 discriminator
+
+User reports a black screen after completing iDeck setup. Exact live PID17464
+was preserved while private native/Valve logs were copied. JIT, native pool and
+Steam gamepadui startup were confirmed; CEF child fatal now has an8-frame EBP
+chain. Build31 adds only an exact-version/lab-gated numeric constant classifier
+at the existing fatal probe; final Mach-O verified,37 native units/full Xcode and
+deep strict signing passed. Old process termination/absence checked, isolated
+install and ordinary launch succeeded. Saved iDeck setup automatically obtained
+JIT and started genuine Big Picture with no diagnostic argument. PID17634 remained
+alive. Assertion classified as vector-front-empty at libcef+0x308def3, direct
+caller+0x82553a9, with repeated identical ancestors.
+
+Pinned official Chromium126.0.6478.183 Crashpad minidump_memory_writer.cc SHA256
+00c803844af5e50cb49671d4972ff28163a5a780530e2cfabcc3008ff8719322: its
+CoalesceOwnedMemory filters zero-size ranges then takes the first remaining item.
+Binary control flow and exact assertion match this sequence. This is strong
+source/disassembly correspondence, not symbol/PDB proof or sole-root-cause proof.
+It points to a secondary report-writer failure; do not suppress the assertion or
+claim it explains every hang. Dump inventory: Steam assert dumps32bytes and
+Crashpad report files0bytes, so they do not contain an original exception stream.
+No useful exception code can be inferred from those incomplete dumps.
+
+User then reports Build31 successfully entered Big Picture and browsed Library,
+but later froze while the native iDeck menu still opened. This is USER-REPORTED
+UI validation, not remote visual verification. Current log samples show no
+STATUS_NO_MEMORY/bad_alloc/pool-exhaustion marker; that does not exclude memory
+pressure. CrBrowserMain samples wait in native read/select. Mac control tool still
+reports locked despite user's unlock report; no lock bypass attempted. Read-only
+CLI collection continued, preserving the frozen process until bounded capture.
+
+Build32 hypothesis: Crashpad's remote read of the original EXCEPTION_RECORD32
+can distinguish the initiating browser exception from report-writer failure.
+A lab-only,16-sample bounded filter emits only recognized public exception codes
+and PC, never parameters, arbitrary strings or buffers; ordinary read semantics
+unchanged. Production size/code/parameter-count filter passes ASan/UBSan tests;
+launcher/readiness regressions and full37-unit/native/Xcode build pass. Final
+Mach-O marker and signature verified. No Valve/FEX/submodule edits. PID17634
+terminated only after capture; Build32 isolated installation underway at this
+checkpoint. Private artifacts ideck-build30/black-*, ideck-build31/, ideck-build32/;
+redacted evidence IDECK_CEF_FREEZE_EVIDENCE.json. Next obtain original exception
+metadata and discriminate a minimal compatibility correction before claiming a
+black-screen/library-freeze fix. Game return/Bluetooth/product stability still
+unverified; original app/main unchanged.
+
+
+Build32 install/ordinary launch completed, PID17759 independently verified alive.
+Stable serial suspend/copy/SIGCONT capture completed and process resumed. The
+original remote exception record is0xe06d7363 at guest0x7bc52f79, before the
+secondary vector-front-empty trap. This identifies a Windows C++ exception, not
+its type, throw origin or cause. No memory-fault/failed-allocation conclusion is
+justified by this metadata. Build33 extends this same discriminator with bounded
+read-only x86 MSVC RTTI traversal inside the target's WoW window, emitting only
+a fixed standard exception category or unknown. No exception object, arbitrary
+type name or message is logged. Native37/full Xcode/deep signing and final marker
+checks pass; isolated installation underway. Previous hung lab PID terminated
+only after evidence capture. This is diagnosis, not a claimed library-freeze fix.
+
+### iDeck Builds34–36: discriminate and repair pseudo-process default keyed events
+
+Base parent74eef9e; Wine9129e968 pinned, main ee9fd2f remains clean.
+Build34's actual original remote exception is0xc0000005 at guest0xfff926a0:
+i386 ntdll RtlRunOnceComplete+0x90 dereferences the next waiter node. This
+is stronger evidence than attributing a saved native return PC to NtReleaseKeyedEvent.
+The earlier C++ exception and later report-writer failure are separate observations.
+
+Hypothesis: native Wine keyed_event is one shared global, while wineserver handles
+are process-local. Main creates a non-inheritable handle; the minimal iOS child
+boot does not create its own. RtlRunOnceBeginInitialize ignores a failed default
+NtWaitForKeyedEvent after linking its stack node, potentially leaving a dangling
+waiter. No FEX/Valve edits or assertion suppression were used.
+
+Discriminating isolated i386 PE, keyed-event32-probe.c: compare null/default and
+fresh explicit handles with a zero timeout, then only if that contract passes run
+four contending InitOnceExecuteOnce workers. Build35 actual device default
+wait/release both return STATUS_OBJECT_TYPE_MISMATCH(0xc0000024); fresh explicit
+handle returns expected STATUS_TIMEOUT(0x102). Test stops safely before contention.
+Build36 same PE/device: all four operations0x102, creation0, all workers join,
+exactly one callback and zero failures: PASS. Private result hashes and redacted
+metadata: IDECK_CEF_FREEZE_EVIDENCE.json; raw artifacts outside Git ideck-build35/
+and ideck-build36/.
+
+Minimal patch: parent-owned sync_ios.c includes the unchanged pinned Wine source,
+then resolves implicit/null keyed events per PEB and WinPID only for isolated
+MADEIRA_STEAM_UI_SESSION=1. Explicit handles and ordinary gaming delegate unchanged.
+Native pthread mutex covers lookup/creation, never blocking keyed wait/release.
+128 identities retained for one native session; no reuse/foreign-handle fallback;
+capacity/create failure returns an actual error. Wine closes process handles at
+exit, but identity reuse and >128 process lifetime are not product-validated.
+ASan/UBSan production-resolver harness passes concurrent lookup, process isolation,
+ordinary/explicit bypass, creation failure and bounded capacity. All37 native units,
+full Xcode Build36, final Madeira.debug.dylib linked marker and deep strict signing
+pass. Existing iDeck readiness/launcher/keyboard/hardware/touch regressions pass.
+Initial host Swift cache sandbox failures were resolved using explicit /tmp caches.
+
+Build36 is signed and installed into the existing isolated iDeck bundle, preserving
+Steam auth/games/saves. Probe launch then fresh ordinary app-open launch completed,
+PID17843 independently verified. Native Steam trace still records original C++
+system_error (public RTTI hash0fa757d1) and secondary vector-front-empty assertion.
+Thus the keyed-event defect is fixed and device-tested, but it does NOT establish
+that library freeze/black screen is fully fixed. A later live log transfer failed
+CoreDevice7000/POSIX60 while exact lab PID stayed alive; do not infer termination.
+Mac CUA still reports locked. User library-navigation regression is pending.
+Next discriminate system_error public code/throw caller with bounded metadata,
+and verify actual Big Picture library/menu/game-return behavior. Bluetooth remains
+unverified. Do not repeat login or replace the primary app.
+
+Read-only exact official CEF PE inspection locates public
+.?AVsystem_error@__Cr@std@@ RTTI, catchable-type size20 and copy constructor
+preferred VA0x158dca90(RVA0x58dca90). Its disassembly copies the8-byte error_code
+from object offset12 (runtime_error base occupies12 bytes). This gives a precise
+next diagnostic: after exact type/version/size checks, read only numeric error
+value and public category identity, never runtime_error text. No such device
+error-code reading has been performed yet; no guess of EPERM/ENOMEM is evidence.

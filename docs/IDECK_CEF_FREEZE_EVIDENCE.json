@@ -1,0 +1,95 @@
+{
+  "build30_black_log_sha256": "988421f151be304596c3acb7438107b39260db133a291d8ebea52cd2b5e8b230",
+  "build31_stable_sha256": "5ee76c6c6a5d4b86d2f2d33523a431c1705049c16cadec0c49a3fa0eb6882de5",
+  "library_hang_sha256": "f9e8e019eaf388874e6426f2f69f45587d39696679ae89ffde33a5ca443886ef",
+  "cef_fatal_assertion": "vector-front-empty",
+  "fatal_helper_rva": "0x308def3",
+  "caller_rvas": [
+    "0x82553a9",
+    "0x825557a",
+    "0x8250e49",
+    "0x75775eb",
+    "0x825086a",
+    "0x7577514",
+    "0x75774ad",
+    "0x14abed7"
+  ],
+  "source_comparison": {
+    "url": "https://chromium.googlesource.com/chromium/src/+/126.0.6478.183/third_party/crashpad/crashpad/minidump/minidump_memory_writer.cc",
+    "sha256": "00c803844af5e50cb49671d4972ff28163a5a780530e2cfabcc3008ff8719322",
+    "interpretation": "disassembly and assertion match removal of zero-size owned memory ranges then front(); likely secondary minidump-writer failure, not proof of original cause"
+  },
+  "user_report": [
+    "Build31 entered Big Picture successfully",
+    "library navigation then froze",
+    "native iDeck menu still opens"
+  ],
+  "verified": [
+    "ordinary launch with no arguments obtained JIT automatically",
+    "same PID17634 alive after reported freeze",
+    "no STATUS_NO_MEMORY/bad_alloc/pool exhaustion marker in sampled hang log"
+  ],
+  "next_discriminator": "user library-navigation regression and determine public system_error code/throw caller with bounded metadata, without exception message or auth payload",
+  "build32": {
+    "ordinary_start": "JIT and genuine Big Picture launch markers present with no extra arguments",
+    "native_snapshot_sha256": "f5ca975bd1393846ccbc242c495b2454e0ef63fab2e77b34c662df2ef50a904f",
+    "original_exception_code": "0xe06d7363",
+    "original_guest_pc": "0x7bc52f79",
+    "classification": "Windows C++ exception; throw origin/type unknown",
+    "secondary_assertion": "vector-front-empty",
+    "next": "Build33 reads only target RTTI metadata and emits a fixed public standard exception category, no object/message payload"
+  },
+  "build34": {
+    "original_exception_code": "0xc0000005",
+    "original_guest_pc": "0xfff926a0",
+    "location": "i386 ntdll RtlRunOnceComplete+0x90, waiter-chain dereference",
+    "interpretation": "dangling/corrupt waiter pointer; not sole cause of every freeze"
+  },
+  "keyed_event_contract": {
+    "base_revision": "74eef9eb8151d0dbc6a2a02f2d94d98ae1b9d1ec",
+    "wine_revision": "9129e9684daaeae70da9435e7c6060e59392634e",
+    "hypothesis": "native keyed_event global is shared across pseudo-processes but server handles belong to one process; child default handle can refer to another object",
+    "build35": {
+      "default_wait": "0xc0000024",
+      "default_release": "0xc0000024",
+      "explicit_create": "0",
+      "explicit_wait": "0x102",
+      "explicit_release": "0x102",
+      "result": "FAIL keyed contract",
+      "artifact_sha256": "d5b5da89ab8a062bf834ee617257cf45f2f6c3a5553024e85632b40e178cb33e"
+    },
+    "build36": {
+      "default_wait": "0x102",
+      "default_release": "0x102",
+      "explicit_create": "0",
+      "explicit_wait": "0x102",
+      "explicit_release": "0x102",
+      "contended_init_once": {
+        "threads": 4,
+        "callbacks": 1,
+        "failures": 0,
+        "joined": "0"
+      },
+      "result": "PASS",
+      "artifact_sha256": "8fa0a68f7010661d47271f3b06cf4da59091916a6c39e625d7b97561351618e6"
+    },
+    "minimal_patch": "lab-session-only per-PEB/process-id implicit keyed-event resolver; explicit handles and ordinary path delegate unchanged",
+    "limitations": [
+      "128 process identities per native app lifetime; fail closed when exhausted, no entry reuse",
+      "full process-id plus PEB reuse within same app lifetime not tested",
+      "does not establish that all CEF freezes share this cause"
+    ]
+  },
+  "build36_steam": {
+    "launch": "ordinary no-argument app open",
+    "pid": 17843,
+    "native_log_sha256": "5a8062a27f9a6d9a87c00a51b1adb5f99630d86564910ca40b5204634b60bdb9",
+    "observed_exception": "0xe06d7363",
+    "cpp_category": "system_error",
+    "rtti_fingerprint": "0fa757d1",
+    "secondary_assertion": "vector-front-empty",
+    "interpretation": "additional original C++ system_error persists; keyed-event test success is not Steam stability proof",
+    "ui_validation": "pending user library navigation test; Mac control tool reports locked",
+    "later_log_copy": "CoreDevice7000/POSIX60; exact lab PID independently remains alive; not proof of crash"
+  }
+}
