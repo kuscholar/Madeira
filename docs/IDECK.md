@@ -123,3 +123,21 @@ account action was ineffective and has been removed. The first launch after this
 upgrade disables auto-start once so the launcher is reachable; its toggle remains
 available afterward. Physical account chooser and selected-account continuity
 are pending validation, not established by successful compilation/installation.
+
+
+## Build50 desktop-login-first experiment
+
+Product launch first opens genuine desktop Steam. The explicit account action
+also requests Valve's changeuser UI. A bounded local observer ignores earlier
+log entries and waits for a new exact `SetLoginState: Success - OK` transition,
+then requests genuine Big Picture from the same Steam instance/prefix. No password
+or refresh token is read, copied into another client, or placed in arguments.
+The observer reads at most16KiB per poll and publishes only a categorical success
+marker. Split/truncated/replaced logs and stale historical success are covered by
+host checks. A command acknowledgement is not proof the Big Picture UI appeared.
+
+For an isolated on-device discriminator without signing out, launch with
+`madeira-steam-login-desktop-experiment`. It uses existing saved Steam state,
+waits for success and never requests changeuser. User enters any required Steam
+Guard/credentials directly. This flow's actual authentication/transition is still
+pending device validation; it is not an established fix for browser hangs.

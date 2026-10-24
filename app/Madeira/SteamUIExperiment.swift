@@ -113,7 +113,7 @@ enum SteamUIExperiment {
         try FileManager.default.copyItem(at: source, to: temporary)
         try FileManager.default.moveItem(at: temporary, to: target)
     }
-    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?, x86Client: Bool = false, bigPicture: Bool = false, bigPictureFlag: String? = nil, accountChooser: Bool = false) throws -> Plan {
+    static func prepare(prefix: URL, width: Int, height: Int, flag: String?, bundleID: String?, x86Client: Bool = false, bigPicture: Bool = false, bigPictureFlag: String? = nil, accountChooser: Bool = false, loginFirst: Bool = false) throws -> Plan {
         guard allowed(flag: flag, bundleID: bundleID) else { throw Failure.disabled }
         guard !bigPicture || bigPictureFlag == "1" else { throw Failure.disabled }
         guard (640...3840).contains(width), (360...2160).contains(height) else { throw Failure.invalidSize }
@@ -128,7 +128,7 @@ enum SteamUIExperiment {
                 return isPE(cef.appendingPathComponent("steamwebhelper.exe"), machine: x86Client ? 0x014c : 0x8664) && isPE(cef.appendingPathComponent("libcef.dll"), machine: x86Client ? 0x014c : 0x8664)
             }
             guard hasCEF else { continue }
-            let plan = Plan(windowsDirectory: "C:\\" + relative.replacingOccurrences(of: "/", with: "\\"), width: width, height: height, bigPicture: bigPicture, accountChooser: accountChooser)
+            let plan = Plan(windowsDirectory: "C:\\" + relative.replacingOccurrences(of: "/", with: "\\"), width: width, height: height, bigPicture: bigPicture && !(accountChooser || loginFirst), accountChooser: accountChooser)
             try plan.batch.write(to: drive.appendingPathComponent("madeira-steam-ui.cmd"), atomically: true, encoding: .utf8)
             return plan
         }
@@ -144,7 +144,7 @@ enum SteamUIExperiment {
 }
 
 enum IDeckCommand: String {
-    case steamMenu = "menu", exitGame = "exit-game", changeAccount = "change-account"
+    case steamMenu = "menu", exitGame = "exit-game", changeAccount = "change-account", bigPicture = "big-picture"
 }
 
 enum IDeckOverlayPosition {
@@ -157,8 +157,44 @@ enum IDeckOverlayPosition {
     }
 }
 
+// Observe only new categorical Steam login transitions; never export log payloads.
+struct IDeckLoginObservation {
+    let file: URL
+    private var offset: UInt64 = 0
+    private var identity: UInt64?
+    private var partial = ""
+    init(file: URL) {
+        self.file = file
+        let attributes = try? FileManager.default.attributesOfItem(atPath: file.path)
+        offset = (attributes?[.size] as? NSNumber)?.uint64Value ?? 0
+        identity = (attributes?[.systemFileNumber] as? NSNumber)?.uint64Value
+    }
+    mutating func succeeded() -> Bool {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
+              let handle = try? FileHandle(forReadingFrom: file) else { return false }
+        defer { try? handle.close() }
+        let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+        let currentIdentity = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value
+        if size < offset || currentIdentity != identity { offset = 0; partial = "" }
+        identity = currentIdentity
+        do {
+            try handle.seek(toOffset: offset)
+            guard let data = try handle.read(upToCount: 16384), !data.isEmpty else { return false }
+            offset += UInt64(data.count)
+            let lines = (partial + String(decoding: data, as: UTF8.self)).components(separatedBy: "\n")
+            partial = String((lines.last ?? "").suffix(8192))
+            return lines.dropLast().contains { IDeckRules.loginSucceeded($0) }
+        } catch { return false }
+    }
+}
+
 // Foundation-only lifecycle policy, shared by the launcher and host checks.
 enum IDeckRules {
+    static func loginSucceeded(_ line: String) -> Bool {
+        line.trimmingCharacters(in: .whitespacesAndNewlines).range(of:
+            #"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[ [A-Za-z]+ \] SetLoginState: Success - OK$"#,
+            options: .regularExpression) != nil
+    }
     static func shouldAutoStart(setup: Bool, ready: Bool, automatic: Bool, arguments: [String]) -> Bool {
         setup && ready && automatic && !arguments.contains { $0.hasPrefix("madeira-") }
     }
@@ -259,6 +295,24 @@ import UIKit
     @Published var controlReady = false
     @Published var controlBusy = false
     @Published var controlStatus: String?
+    @Published var accountSetup = false
+    private var loginObservation: IDeckLoginObservation?
+    private var loginConfirmed = false
+    func beginLoginObservation(client: URL, enabled: Bool) {
+        accountSetup = enabled; loginConfirmed = false
+        loginObservation = enabled ? IDeckLoginObservation(file: client.appendingPathComponent("logs/steamui_login.txt")) : nil
+    }
+    private func advanceLogin() {
+        guard accountSetup else { return }
+        if loginObservation?.succeeded() == true {
+            loginConfirmed = true
+            LogStore.shared.log("[ideck-account] Steam reported Success/OK; no account payload recorded")
+        }
+        if loginConfirmed && controlReady && !controlBusy {
+            command(.bigPicture)
+            if controlBusy { accountSetup = false; loginObservation = nil; loginConfirmed = false }
+        }
+    }
     private var controlTimer: Timer?
     private var requestID: String?
     private var requestedAt = Date.distantPast
@@ -286,6 +340,7 @@ import UIKit
         } catch { controlStatus="Could not send the Steam action." }
     }
     private func pollControl() {
+        defer { advanceLogin() }
         if controlBusy && Date().timeIntervalSince(requestedAt)>30 {
             controlBusy=false;requestID=nil;controlStatus="Steam did not confirm the action."
         }
@@ -298,7 +353,7 @@ import UIKit
                     let result=String(fields[1])
                     switch result {
                     case "close-requested": controlStatus="Closing game. Confirm any save prompt in the game.";return
-                    case "menu-requested": controlStatus=nil
+                    case "menu-requested", "big-picture-requested": controlStatus=nil
                     case "account-ui-requested": controlStatus="Choose your account in Steam. iDeck never enters credentials."
                     case "returned-to-steam": controlStatus=nil
                     case "no-game": controlStatus="No running Steam game window was found."
@@ -458,7 +513,7 @@ struct IDeckHUD: View {
         case 0: keyboard()
         case 1: controls.visible.toggle()
         case 2: controls.visible=true;controls.editing=true;state.menu=false
-        case 3: state.command(.steamMenu)
+        case 3: state.command(state.accountSetup ? .bigPicture : .steamMenu)
         case 4: confirmExit=true
         case 5: state.autoStart.toggle()
         case 6: showSettings=true
@@ -481,7 +536,7 @@ struct IDeckHUD: View {
                                     Button {
                                         selection=index;activate()
                                     } label: {
-                                        HStack { Text(label);Spacer();
+                                        HStack { Text(index==3 && state.accountSetup ? "Enter Big Picture" : label);Spacer();
                                             if index==1 { Image(systemName:controls.visible ? "checkmark.circle.fill":"circle") }
                                             if index==5 { Image(systemName:state.autoStart ? "checkmark.circle.fill":"circle") }
                                         }.frame(maxWidth:.infinity,alignment:.leading).padding(9)

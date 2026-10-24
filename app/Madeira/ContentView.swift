@@ -1390,8 +1390,9 @@ struct ContentView: View {
                 let automaticNativeVM = ProcessInfo.processInfo.arguments.contains("madeira-native-vm-diagnostics")
                 let automaticReservation = ProcessInfo.processInfo.arguments.contains("madeira-reservation-diagnostics")
                 let automaticFLS = ProcessInfo.processInfo.arguments.contains("madeira-fls-diagnostics")
+                let automaticLoginFirst = ProcessInfo.processInfo.arguments.contains("madeira-steam-login-desktop-experiment")
                 let automaticBigPicture = ProcessInfo.processInfo.arguments.contains("madeira-steam-big-picture-x86-experiment")
-                let automaticX86Client = automaticBigPicture || ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-x86-experiment")
+                let automaticX86Client = automaticLoginFirst || automaticBigPicture || ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-x86-experiment")
                 let automaticSteamUI = automaticX86Client || ProcessInfo.processInfo.arguments.contains("madeira-steam-ui-experiment")
                 if IDeckState.enabled && !automaticSteamUI && !automaticX86CEF && !automaticNativeVM && !automaticReservation && !automaticFLS {
                     ideck.refresh()
@@ -1407,7 +1408,7 @@ struct ContentView: View {
                     DispatchQueue.main.async {
                         launchAfterJIT = {
                             if automaticNativeVM { startSteamUINativeVMProbe() }
-                            else if automaticSteamUI { startSteamUIExperiment(x86Client: automaticX86Client, bigPicture: automaticBigPicture) }
+                            else if automaticSteamUI { startSteamUIExperiment(x86Client: automaticX86Client, bigPicture: automaticBigPicture, loginFirst: automaticLoginFirst) }
                             else { startSteamUIProbe(fls: automaticFLS, reservation: automaticReservation, x86CEF: automaticX86CEF, keyedEvent: automaticKeyedEvent, swiftshader: automaticSwiftshader) }
                         }
                         enableJIT()
@@ -3594,12 +3595,12 @@ struct ContentView: View {
         guard !ideck.running, !jitCoordinator.busy, wine_process_is_running() == 0 else { return }
         ideck.error = nil
         UserDefaults.standard.set(true, forKey: "iDeckSetupComplete")
-        let launch = { startSteamUIExperiment(x86Client: true, bigPicture: true, accountChooser: accountChooser) }
+        let launch = { startSteamUIExperiment(x86Client: true, bigPicture: true, accountChooser: accountChooser, loginFirst: true) }
         if jit_check_debugged() && StikJITHelper.ready { launch() }
         else { launchAfterJIT = launch; enableJIT() }
     }
 
-    private func startSteamUIExperiment(x86Client: Bool = false, bigPicture: Bool = false, accountChooser: Bool = false) {
+    private func startSteamUIExperiment(x86Client: Bool = false, bigPicture: Bool = false, accountChooser: Bool = false, loginFirst: Bool = false) {
         guard SteamUIExperiment.enabled, !steamUIStarting, jit_check_debugged(), wine_process_is_running() == 0,
               wineserver_is_running() == 0, !StikJITHelper.poolTaken else {
             logStore.log("[steam-ui] launch refused: isolated experimental app, JIT and a fresh session are required", level: .error)
@@ -3617,7 +3618,11 @@ struct ContentView: View {
             if IDeckState.enabled { try ideck.installControl() }
             let plan = try SteamUIExperiment.prepare(prefix: prefix, width: size.0, height: size.1,
                 flag: MadeiraConfig.get(SteamUIExperiment.flag) ?? (IDeckState.enabled ? "1" : nil), bundleID: Bundle.main.bundleIdentifier, x86Client: x86Client, bigPicture: bigPicture,
-                bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag) ?? (IDeckState.enabled ? "1" : nil), accountChooser: accountChooser)
+                bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag) ?? (IDeckState.enabled ? "1" : nil), accountChooser: accountChooser, loginFirst: loginFirst)
+            if IDeckState.enabled {
+                let relative = String(plan.windowsDirectory.dropFirst(3)).replacingOccurrences(of: "\\", with: "/")
+                ideck.beginLoginObservation(client: prefix.appendingPathComponent("drive_c/" + relative), enabled: accountChooser || loginFirst)
+            }
             steamUIStarting = true
             Task { @MainActor in
                 await SteamOwnedLibrary.shared.prepareDock() // close competing native CM connection; no token transfer
@@ -3641,7 +3646,7 @@ struct ContentView: View {
                     ideck.observeControl()
                     GameSessionOrientation.setLandscapeLocked(true)
                 }
-                SteamUIEvidence.shared.start(prefix: prefix, bigPicture: bigPicture)
+                SteamUIEvidence.shared.start(prefix: prefix, bigPicture: plan.bigPicture)
                 runWineFullSequence(steamUI: true)
             }
         } catch {

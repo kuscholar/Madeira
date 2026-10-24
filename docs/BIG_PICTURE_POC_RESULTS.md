@@ -1536,3 +1536,37 @@ and resting xinput1/hid1/observed_changes0. Hashes in control evidence. Confirms
 initial foreground acquisition, not previous lack of focus, working mouse or
 controller UI. Waiting for physical touch/virtual-vs-physical clarification and
 post-change response. Keep this session alive. No agent credential interaction.
+
+### Build50 post-Steam-Guard stall: ordinary Steam login before Big Picture
+
+User confirms Build49 input now responds and credentials can be entered. User
+reports approving the official Steam mobile login request, but iDeck stalls.
+Preserved native PID21346 session and private Steam logs before modifying code.
+Steam login state stays WaitingForCredentials; no current Success/OK. webhelper
+10:27:41 says it kills an unresponsive browser. CM WebSocket handshake completed,
+then10:27:16 Try another CM/Failure was ignored because client was not waiting for
+a logon response. These do not prove bad password, rejected Guard or a sole
+network cause. Two early native auxiliary WoW64 faults and later Crashpad
+vector-front-empty are not treated as the original login failure. No agent login.
+Raw logs remain private; hashes and categorical findings in control evidence.
+
+Single hypothesis: authenticating inside direct Big Picture may differ from the
+previously verified ordinary desktop login path. Product launch/account setup now
+opens genuine desktop Steam first; bounded observer starts at current login-log
+EOF and waits for a new exact Success/OK. It ignores historical success, partial
+lines and non-success states, handles rotation/truncation, and records no account
+payload. Only after success plus helper readiness dispatch fixed Big Picture URI
+to actual running Steam executable, with protocol fallback only when it cannot
+find that process. No credential arguments/cache editing/FEX/Valve changes.
+Explicit madeira-steam-login-desktop-experiment tests same existing login data
+without invoking changeuser. Main unchanged. Full Xcode50/x64 Werror/deep signing,
+final debug dylib/PE markers and existing gates pass; observer regression covers
+stale success, split writes, log replacement and spoofed/non-success text.
+Actual new authentication and Big Picture transition remain unverified; do not
+claim compilation proves the hypothesis or cures the browser hang.
+
+Build50 actual isolated install/explicit desktop launch succeeded PID21478.
+Copied actual device batch confirms neither -bigpicture nor changeuser on this
+controlled launch; helper ready/ready. Final helper/debug Mach-O hashes recorded.
+User fresh-login/Guard completion test is pending. Preserve session and verify
+actual successful-login marker plus real Big Picture view before any GO claim.

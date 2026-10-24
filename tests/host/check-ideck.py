@@ -17,6 +17,28 @@ assert(IDeckCommand(rawValue:"change-account") == .changeAccount)
 assert(IDeckCommand(rawValue:"exit-game") == .exitGame)
 assert(IDeckCommand(rawValue:"menu") == .steamMenu)
 assert(IDeckCommand(rawValue:"shell rm") == nil)
+assert(IDeckCommand(rawValue:"big-picture") == .bigPicture)
+let loginURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+defer { try? FileManager.default.removeItem(at: loginURL) }
+let success = "[2026-10-24 10:26:03] [ WaitingForLibraryReady ] SetLoginState: Success - OK\n"
+try success.write(to: loginURL, atomically: true, encoding: .utf8)
+var observer = IDeckLoginObservation(file: loginURL)
+assert(!observer.succeeded()) // An earlier account's historical success is ignored.
+let writer = try FileHandle(forWritingTo: loginURL)
+try writer.seekToEnd()
+try writer.write(contentsOf: Data("[2026-10-24 10:26:04] [ None ] SetLoginState: WaitingForCredentials - OK\n".utf8))
+assert(!observer.succeeded())
+let split = success.index(success.startIndex, offsetBy: 40)
+try writer.write(contentsOf: Data(success[..<split].utf8))
+assert(!observer.succeeded())
+try writer.write(contentsOf: Data(success[split...].utf8))
+assert(observer.succeeded()) // Split writes and CRLF do not cause premature auth success.
+assert(!observer.succeeded())
+try writer.close()
+assert(!IDeckRules.loginSucceeded("payload SetLoginState: Success - OK"))
+assert(!IDeckRules.loginSucceeded("[2026-10-24 10:26:03] [ None ] SetLoginState: Success - Failure"))
+try success.write(to: loginURL, atomically: true, encoding: .utf8)
+assert(observer.succeeded()) // A replaced/rotated log is read from its new identity.
 let args = ["/Applications/iDeck"]
 assert(IDeckRules.shouldAutoStart(setup: true, ready: true, automatic: true, arguments: args))
 for probe in ["madeira-runtime-diagnostics", "madeira-steam-big-picture-x86-experiment", "madeira-fls-diagnostics"] {

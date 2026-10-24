@@ -120,6 +120,43 @@
     "helper_sha256": "acc30f3f335594eb001baa878636137a3e5ea9333b5600a734fa3290eeb1c8cc",
     "device": "Installed and explicit normal Big Picture launch succeeded without requesting account switch. Actual startup_focus1/foreground_matches1; xinput1/hid1/observed_changes0 at rest. User effect pending; zero resting sample is not failed input proof.",
     "focus_sha256": "73f91c28ef9e88fac4d5c72e177f3fbed5f6c5f43af9a7f41d15a4f5311b70ae",
-    "input_sha256": "39dcb7f9d7314579e2bb02d7f46c5449c05b8a9dca76ede46b945b6c85bbcb44"
+    "input_sha256": "39dcb7f9d7314579e2bb02d7f46c5449c05b8a9dca76ede46b945b6c85bbcb44",
+    "user_feedback": "Input works; user can enter credentials. User approved the Steam Guard request on official mobile Steam, but iDeck remained stalled."
+  },
+  "build50": {
+    "base_revision": "7bb79ca",
+    "observed_failure": [
+      "Steam login log remains WaitingForCredentials; no current-session Success/OK",
+      "webhelper at10:27:41 reports killing an unresponsive browser",
+      "CM WebSocket connection completed; later Try another CM/Failure ignored since client not waiting for logon response",
+      "Two early auxiliary WoW64 native faults and a later Crashpad vector-front-empty fatal are separate observations, not proven primary auth cause"
+    ],
+    "hypothesis": "Fresh login inside direct Big Picture flow may stall the browser; first authenticate in ordinary genuine desktop Steam, then transition to Big Picture",
+    "patch": [
+      "iDeck product startup/account mode omit -bigpicture initially",
+      "Observe only new complete exact Steam Success/OK state lines after session launch; ignore historical success and partial lines",
+      "Only after that state and ready helper, request fixed steam://open/bigpicture",
+      "Helper dispatches fixed URI to the running Steam executable via CreateProcess, avoids stale URI registry when process found",
+      "Explicit no-account-switch desktop experiment argument for on-device test"
+    ],
+    "privacy": "No credentials entered by agent; no token/cache copy, auth bypass, user identifiers or arbitrary payload in published evidence",
+    "checks": [
+      "Xcode50 full build",
+      "x64 helper Werror",
+      "deep strict signing",
+      "final debug Mach-O success marker and helper dispatch/imports inspected",
+      "host tests historical success ignored, chunked lines, log rotation, negative states/credential text rejected",
+      "account and loginFirst batches omit Big Picture and credential flags; existing launcher/keyboard gates pass"
+    ],
+    "private_evidence_sha256": {
+      "native-private.txt": "fdc9905fd650600fe1086cee17ac550ce09da558b88b97f66b9d93808e77ea8e",
+      "connection_log.txt": "c9d7b9257ee2c2abf88c87b3e65b53c78a94b0773882fdc08fd785571c19d846",
+      "steamui_login.txt": "2d71bc96edb09e32d7a69cf6fa7cecdea274a127d27c47d69378e1103ab31ab6",
+      "webhelper.txt": "76034ba02a4ec2268b6566c4a90fc08b15aa292d92dfafcc3f33a84528642a16",
+      "webhelper_js.txt": "7b7851503fc34c75849d1538e0bea7a11083e391739315e0e23f997a4ddab61e"
+    },
+    "device": "Signed, installed and launched explicit desktop-login mode PID21478. Actual batch omits -bigpicture and changeuser; helper ready ready. Fresh authentication and transition user test pending.",
+    "helper_sha256": "0590e476aa347a79ac629071d6384d283f9148f83321bd40162bb902cfe6812f",
+    "debug_macho_sha256": "d62804b0d5bb82bf5877ce109f81864a0e5967232df8b6d9f13fe89b18a044a9"
   }
 }

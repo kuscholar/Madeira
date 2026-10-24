@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <xinput.h>
+#include <tlhelp32.h>
 #include <stdio.h>
 #include <wchar.h>
 #include <wctype.h>
@@ -50,6 +51,27 @@ static BOOL CALLBACK find_steam(HWND window,LPARAM unused) {
     if(area>steam_area){steam_area=area;steam_window=window;}return TRUE;
 }
 static int open_steam(const WCHAR *url) {
+    /* Dispatch a fixed Steam URI to the running client's actual executable,
+     * rather than depending on an old prefix's protocol registration. */
+    HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+    PROCESSENTRY32W entry={0};entry.dwSize=sizeof(entry);
+    if(snapshot!=INVALID_HANDLE_VALUE) {
+        BOOL more=Process32FirstW(snapshot,&entry);
+        while(more) {
+            WCHAR path[1024];
+            if(!_wcsicmp(entry.szExeFile,L"steam.exe") && image(entry.th32ProcessID,path)) {
+                WCHAR command[1200];STARTUPINFOW startup={0};PROCESS_INFORMATION child={0};
+                startup.cb=sizeof(startup);
+                int n=swprintf(command,1200,L"\"%ls\" %ls",path,url);
+                CloseHandle(snapshot);
+                if(n<0||n>=1200)return 0;
+                if(!CreateProcessW(path,command,NULL,NULL,FALSE,0,NULL,NULL,&startup,&child))return 0;
+                CloseHandle(child.hThread);CloseHandle(child.hProcess);return 1;
+            }
+            more=Process32NextW(snapshot,&entry);
+        }
+        CloseHandle(snapshot);
+    }
     return (INT_PTR)ShellExecuteW(NULL,L"open",url,NULL,NULL,SW_SHOWNORMAL)>32;
 }
 static int focus_steam(void) {
@@ -125,6 +147,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE previous,PWSTR line,int show) {
                     UINT sent=key(VK_CONTROL,0);sent+=key('1',0);Sleep(100);sent+=key('1',KEYEVENTF_KEYUP);sent+=key(VK_CONTROL,KEYEVENTF_KEYUP);
                     ack(id,sent==4?"menu-requested":"input-unavailable");
                 } else ack(id,"steam-window-unavailable");
+            } else if(!strcmp(command,"big-picture")) {
+                ack(id,open_steam(L"steam://open/bigpicture")?"big-picture-requested":"steam-open-failed");
             } else if(!strcmp(command,"change-account")) {
                 ack(id,open_steam(L"steam://changeuser")?"account-ui-requested":"steam-open-failed");
             } else if(!strcmp(command,"exit-game")) {
