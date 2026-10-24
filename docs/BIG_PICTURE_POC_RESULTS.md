@@ -1418,3 +1418,30 @@ report has a concrete verified correction. Do not claim all long-term/product ga
 complete: controller/direct touch, licensed game launch/return, ordinary restart
 with saved login and Bluetooth remain to be separately validated. Preserve live
 session and do not repeat the fixed diagnostic loop without new failure evidence.
+
+### Build45 user-requested iDeck interaction changes
+
+User requests draggable top-right HUD, game exit/return, working Steam menu,
+virtual controller recognition and account switching. Main remains untouched.
+Fix centering by explicit screen-sized HUD layout/position; persist safe-area
+clamped normalized location. Menu scrolls on landscape screens and preserves
+controller selection. Replace Esc-only Steam action with a fixed local Windows
+helper focusing Steam and sending Ctrl+1. Graceful game exit only WM_CLOSE to
+foreground/unambiguous standard Steam library game window, wait for real process
+exit then open genuine Big Picture. No forced kill. Account confirmation opens
+Valve's own steam://changeuser (also observed in exact official Steam UI JS);
+no cache deletion, token copy or credentials. Helper has three fixed commands,
+UUID acknowledgements, bounded native timeouts, and no network/arbitrary shell.
+
+Virtual controller now reserves slot0 before Steam even when hidden, and exposes
+generic HID plus XInput only for Steam UI sessions. Existing ordinary controller
+mode/default reservation policy is preserved. Enabling overlay loads Xbox if
+saved layout has no pad controls. Full Xcode45/helper i386 Werror/deep signing,
+final debug Mach-O/bundled helper markers, production position/command policy and
+existing input/touch/gamepad/launcher/keyboard checks pass. Native44 compatibility
+archive unchanged. Build45 installed in existing isolated bundle and explicit Big
+Picture launch succeeds. Actual Windows helper result ready/ready and controller
+status xinput1/hid_gamepads1; hashes in IDECK_CONTROL_EVIDENCE.json. This is API
+enumeration, not Steam UI/button proof. Mac CUA reports locked; user drag/virtual
+navigation/Steam menu regression question pending. No agent account switch or
+new credential entry. Actual game-close/return and account-chooser UI still pending.

@@ -2695,9 +2695,9 @@ struct ContentView: View {
         MadeiraConfig.migrateLegacy { self.logStore.log($0) }
         MadeiraConfig.deleteLegacyFiles { self.logStore.log($0) }   /* ml1096: the old files go once the cfg exists */
         /* ml2100: XInput (default) or the HID controller; before the wineserver starts. */
-        GamepadInput.shared.beginPadSession()
+        GamepadInput.shared.beginPadSession(steamUI: steamUI)
         /* ml1990: player 1 exists before the game enumerates XInput. */
-        GamepadInput.shared.reserveSessionSlot(touchControls: TouchControlsModel.shared.offersControllerInput)
+        GamepadInput.shared.reserveSessionSlot(touchControls: TouchControlsModel.shared.offersControllerInput, virtualController: steamUI)
         if MadeiraConfig.present {
             let cfg = MadeiraConfig.all().sorted { $0.key < $1.key }
             logStore.log("madeira.cfg: " + (cfg.isEmpty ? "(empty)" : cfg.map { "\($0.key)=\($0.value)" }.joined(separator: " ")))
@@ -3614,6 +3614,7 @@ struct ContentView: View {
                 try SteamUIExperiment.importBundledX86(source: source, prefix: prefix,
                     flag: MadeiraConfig.get(SteamUIExperiment.flag) ?? (IDeckState.enabled ? "1" : nil), bundleID: Bundle.main.bundleIdentifier)
             }
+            if IDeckState.enabled { try ideck.installControl() }
             let plan = try SteamUIExperiment.prepare(prefix: prefix, width: size.0, height: size.1,
                 flag: MadeiraConfig.get(SteamUIExperiment.flag) ?? (IDeckState.enabled ? "1" : nil), bundleID: Bundle.main.bundleIdentifier, x86Client: x86Client, bigPicture: bigPicture,
                 bigPictureFlag: MadeiraConfig.get(SteamUIExperiment.bigPictureFlag) ?? (IDeckState.enabled ? "1" : nil))
@@ -3637,6 +3638,7 @@ struct ContentView: View {
                     InputSettings.shared.touchMode = true
                     TouchControlsModel.shared.visible = false
                     ideck.running = true
+                    ideck.observeControl()
                     GameSessionOrientation.setLandscapeLocked(true)
                 }
                 SteamUIEvidence.shared.start(prefix: prefix, bigPicture: bigPicture)

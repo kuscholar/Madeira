@@ -84,3 +84,30 @@ JIT handoff; true full-screen Big Picture; controller and direct touch navigatio
 floating menu keyboard/overlay/settings; licensed game play and return; app
 restart with saved login/auto-start. Do not mark the whole product complete from
 these source or host checks.
+
+## Build45 controls and account switching
+
+The floating button now defaults to the safe top-right corner. Drag it to move;
+its normalized position persists and is clamped inside safe bounds after rotation.
+The scrolling menu includes Keyboard, Virtual controller, layout, Steam menu,
+Exit game → Steam, Change Steam account, auto-start and settings. Controller
+up/down/A also chooses menu entries. Account switching asks for confirmation then
+opens Valve's own `steam://changeuser` UI; iDeck never enters or copies credentials.
+
+A small GPL Windows control helper is built from `build/ideck-control/` into the
+app by the resource phase. Set LLVM_MINGW to the toolchain root or put
+`i686-w64-mingw32-clang` on PATH. It accepts only three fixed local actions, uses
+no network and no arbitrary shell command. Steam menu focuses the real Steam
+window and sends Ctrl+1. Exit game sends a normal WM_CLOSE, waits for actual
+process exit, then opens Big Picture. It never force-kills a game; confirm any
+save prompt in the game. Visible standard `steamapps/common` game windows are
+recognized; focus the desired game if more than one is present.
+
+The isolated Steam session now exposes its virtual player1 before enumeration,
+even while touch controls are hidden, through generic HID and XInput. Ordinary
+Madeira game sessions retain their previous controller defaults. If the saved
+layout contains only keyboard controls, enabling Virtual controller loads Xbox
+controls. Read `IDECK_CONTROL_EVIDENCE.json` for actual checks and limits.
+Build45's Windows helper reports XInput connected and one HID gamepad; UI touch
+navigation, menu effects, account chooser and game-return require separate real
+interface validation. Do not treat dispatch acknowledgement as UI success.

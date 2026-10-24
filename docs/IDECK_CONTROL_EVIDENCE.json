@@ -1,0 +1,39 @@
+{
+  "build": 45,
+  "base_revision": "944d2ca",
+  "scope": "isolated iDeck only; no FEX, Valve binary or authentication cache modifications",
+  "changes": {
+    "HUD": "explicit full-screen layout, safe-area-clamped default top-right, draggable persisted normalized center",
+    "Steam_menu": "fixed-command Windows helper focuses genuine Steam and injects Ctrl+1; Esc removed",
+    "exit_game": "normal WM_CLOSE to foreground/unambiguous standard Steam library game window, wait for real process exit then open Big Picture; no force kill",
+    "account": "native confirmation then genuine steam://changeuser UI; no credentials/token/cache manipulation",
+    "virtual_controller": "reserved player1 before Steam enumeration even with overlay hidden; generic HID + XInput for Steam session; ensure a controller layout when enabled"
+  },
+  "local_checks": [
+    "full Xcode45",
+    "Windows helper i386 -Wall -Wextra -Werror",
+    "deep strict signing",
+    "final debug dylib and bundled PE markers",
+    "production safe-area placement/persistence calculation and finite-command host checks",
+    "existing input mapping/touch/gamepad/launcher/keyboard regressions"
+  ],
+  "device": {
+    "install": "succeeded in existing isolated bundle",
+    "launch": "explicit genuine Big Picture launch succeeded",
+    "control_bridge": "ready ready",
+    "Windows_controller_status": "xinput=1 buttons=0000 hid_gamepads=1",
+    "UI_validation": "pending user drag/virtual navigation/Steam menu checks; Mac CUA reports locked",
+    "account_switch": "not invoked by agent; no credential automation",
+    "game_return": "not tested on device yet"
+  },
+  "helper_sha256": "567f79fe70f0faf0b931d31e1064bc2f6fc5549d631a3fa89bb509e4ab117ba8",
+  "debug_macho_sha256": "bbaf435c4faa2052a3c3a3a69ad444ea9b42fc983bf12f6cc2ab3edf189f91fe",
+  "ready_sha256": "e800348d9d264664b7da0a65bd9caec2694924f95f8c341aaefb4c1d3f832199",
+  "input_sha256": "91f6927d4f3105a1d0044653b45f3e3a498aef2ecd1bd0da61407f4d9332144d",
+  "limits": [
+    "graceful close may require confirming a game save dialog",
+    "automatic game selection limited to visible standard steamapps/common game windows; ambiguous games require foreground selection",
+    "command dispatch acknowledgement is not proof a Steam UI opened",
+    "controller API enumeration is not proof Steam accepted touch button events"
+  ]
+}

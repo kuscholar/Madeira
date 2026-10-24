@@ -69,6 +69,7 @@ enum SteamUIExperiment {
         let bigPicture: Bool
         var batch: String {
             ["@echo off", "start \"\" \"C:\\windows\\system32\\services.exe\"",
+             "if exist C:\\ideck-control.exe start \"\" C:\\ideck-control.exe",
              "cd /d \"\(windowsDirectory)\"",
              "\"\(windowsDirectory)\\steam.exe\" -no-cef-sandbox -cef-disable-gpu -nocrashmonitor\(bigPicture ? " -bigpicture" : "")"]
                 .joined(separator: "\r\n") + "\r\n"
@@ -138,6 +139,20 @@ enum SteamUIExperiment {
         if text.contains("ChromeMainDelegate") { found.insert("cef-initialization-reported") }
         if text.contains("BrowserReady") { found.insert("browser-ready-reported") }
         return found
+    }
+}
+
+enum IDeckCommand: String {
+    case steamMenu = "menu", exitGame = "exit-game", changeAccount = "change-account"
+}
+
+enum IDeckOverlayPosition {
+    static func center(size: CGSize, saved: CGPoint, left: CGFloat, top: CGFloat, right: CGFloat, bottom: CGFloat) -> CGPoint {
+        let minX=left+32, minY=top+32
+        let maxX=max(minX,size.width-right-32), maxY=max(minY,size.height-bottom-32)
+        let candidate = saved.x >= 0 && saved.y >= 0 && saved.x.isFinite && saved.y.isFinite
+            ? CGPoint(x:saved.x*size.width,y:saved.y*size.height) : CGPoint(x:maxX,y:minY)
+        return CGPoint(x:min(maxX,max(minX,candidate.x)),y:min(maxY,max(minY,candidate.y)))
     }
 }
 
@@ -231,6 +246,66 @@ import UIKit
     var prefix: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("wine") }
     func refresh() {
         ready = IDeckRules.clientReady(prefix: prefix)
+    }
+    @Published var controlReady = false
+    @Published var controlBusy = false
+    @Published var controlStatus: String?
+    private var controlTimer: Timer?
+    private var requestID: String?
+    private var requestedAt = Date.distantPast
+    func installControl() throws {
+        guard let source=Bundle.main.resourceURL?.appendingPathComponent("ideck-control.exe"), SteamUIExperiment.isX86PE(source) else {
+            throw NSError(domain:"iDeck",code:10,userInfo:[NSLocalizedDescriptionKey:"iDeck control helper is missing from this build."])
+        }
+        let drive=prefix.appendingPathComponent("drive_c")
+        try Data(contentsOf:source).write(to:drive.appendingPathComponent("ideck-control.exe"),options:.atomic)
+        for name in ["ideck-command.txt","ideck-command-result.txt"] { try? FileManager.default.removeItem(at:drive.appendingPathComponent(name)) }
+        controlReady=false;controlBusy=false;requestID=nil;controlStatus=nil
+    }
+    func observeControl() {
+        controlTimer?.invalidate()
+        controlTimer=Timer.scheduledTimer(withTimeInterval:0.25,repeats:true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pollControl() }
+        }
+    }
+    func command(_ action: IDeckCommand) {
+        guard Self.enabled, running, controlReady, !controlBusy else { return }
+        let id=UUID().uuidString.lowercased()
+        do {
+            try Data("\(id) \(action.rawValue)\n".utf8).write(to:prefix.appendingPathComponent("drive_c/ideck-command.txt"),options:.atomic)
+            requestID=id;requestedAt=Date();controlBusy=true;controlStatus="Sending to Steam…";menu=false
+        } catch { controlStatus="Could not send the Steam action." }
+    }
+    private func pollControl() {
+        if controlBusy && Date().timeIntervalSince(requestedAt)>30 {
+            controlBusy=false;requestID=nil;controlStatus="Steam did not confirm the action."
+        }
+        let file=prefix.appendingPathComponent("drive_c/ideck-command-result.txt")
+        if let data=try? Data(contentsOf:file), data.count<=128 {
+            let fields=String(decoding:data,as:UTF8.self).split(whereSeparator: { $0.isWhitespace })
+            if fields.count==2 {
+                if fields[0]=="ready" && fields[1]=="ready" { controlReady=true }
+                if let id=requestID, fields[0]==id {
+                    let result=String(fields[1])
+                    switch result {
+                    case "close-requested": controlStatus="Closing game. Confirm any save prompt in the game.";return
+                    case "menu-requested": controlStatus=nil
+                    case "account-ui-requested": controlStatus="Choose your account in Steam. iDeck never enters credentials."
+                    case "returned-to-steam": controlStatus=nil
+                    case "no-game": controlStatus="No running Steam game window was found."
+                    case "multiple-games": controlStatus="Focus the game you want to close, then try again."
+                    case "game-close-pending": controlStatus="The game is still open. Confirm its save/exit prompt."
+                    case "steam-window-unavailable": controlStatus="Steam’s window is not ready yet."
+                    case "busy": controlStatus="A game exit is already pending."
+                    default: controlStatus="Steam could not complete this action."
+                    }
+                    controlBusy=false;requestID=nil
+                }
+            }
+        }
+        if controlBusy && Date().timeIntervalSince(requestedAt)>30 {
+            controlBusy=false;requestID=nil;controlStatus="Steam did not confirm the action."
+        }
     }
     func prepare() {
         guard Self.enabled, !preparing, !running, wine_process_is_running() == 0 else { return }
@@ -352,70 +427,101 @@ struct IDeckHUD: View {
     @ObservedObject private var state = IDeckState.shared
     @ObservedObject private var controls = TouchControlsModel.shared
     @State private var showSettings = false
+    @State private var confirmAccount = false
+    @State private var confirmExit = false
     @State private var selection = 0
-    private func keyboard() { state.menu = false; MetalBackedView.toggleKeyboard() }
-    private func accept() {
+    @State private var dragBase: CGPoint?
+    @State private var drag = CGSize.zero
+    @AppStorage("iDeckHUDx") private var savedX = -1.0
+    @AppStorage("iDeckHUDy") private var savedY = -1.0
+    private let labels=["Keyboard","Virtual controller","Arrange controls","Steam menu","Exit game → Steam","Change Steam account","Auto-start","Settings","Done"]
+    private func keyboard() { state.menu=false;MetalBackedView.toggleKeyboard() }
+    private func activate() {
         switch selection {
         case 0: keyboard()
         case 1: controls.visible.toggle()
-        case 2: controls.visible = true; controls.editing = true; state.menu = false
-        case 3: state.autoStart.toggle()
-        case 4: showSettings = true
-        default: state.menu = false
+        case 2: controls.visible=true;controls.editing=true;state.menu=false
+        case 3: state.command(.steamMenu)
+        case 4: confirmExit=true
+        case 5: confirmAccount=true
+        case 6: state.autoStart.toggle()
+        case 7: showSettings=true
+        default: state.menu=false
         }
     }
     var body: some View {
         GeometryReader { geo in
-            ZStack(alignment: .topTrailing) {
+            let insets=geo.safeAreaInsets
+            let resting=IDeckOverlayPosition.center(size:geo.size,saved:CGPoint(x:savedX,y:savedY),left:insets.leading,top:insets.top,right:insets.trailing,bottom:insets.bottom)
+            let current=dragBase.map { CGPoint(x:$0.x+drag.width,y:$0.y+drag.height) } ?? resting
+            ZStack(alignment:.topTrailing) {
                 if state.menu {
-                    Color.black.opacity(0.7).ignoresSafeArea().onTapGesture { state.menu = false }
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack { Text("iDeck").font(.title2.bold()); Spacer(); Button("Done") { state.menu = false } }
-                        Button("Keyboard", systemImage: "keyboard") {
-                            keyboard()
-                        }
-                        Toggle("Virtual controller", isOn: $controls.visible)
-                        Button("Arrange virtual controls", systemImage: "slider.horizontal.3") {
-                            controls.visible = true; controls.editing = true; state.menu = false
-                        }
-                        Toggle("Open Big Picture next time", isOn: $state.autoStart)
-                        Button("Settings", systemImage: "gearshape") { showSettings = true }
-                        Text(["Controller: Keyboard", "Controller: Virtual controller", "Controller: Arrange controls", "Controller: Auto-start", "Controller: Settings", "Controller: Done"][selection]).font(.caption).foregroundStyle(.cyan)
-                        Button("Steam menu", systemImage: "line.3.horizontal") {
-                            state.menu = false
-                            winios_post_key(0x1B, 1); winios_post_key(0x1B, 0)
-                        }
-                        Text("Sign out in Steam to remove its saved login. Games and saves stay in this app.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }.padding(24).frame(maxWidth: 390).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
-                        .padding(.top, max(geo.safeAreaInsets.top, 12)).padding(16)
+                    Color.black.opacity(0.65).ignoresSafeArea().onTapGesture { state.menu=false }
+                    ScrollViewReader { reader in
+                        ScrollView {
+                            VStack(alignment:.leading,spacing:14) {
+                                HStack { Text("iDeck").font(.title2.bold());Spacer();Button("Done") { state.menu=false } }
+                                ForEach(Array(labels.enumerated()),id:\.offset) { index,label in
+                                    Button {
+                                        selection=index;activate()
+                                    } label: {
+                                        HStack { Text(label);Spacer();
+                                            if index==1 { Image(systemName:controls.visible ? "checkmark.circle.fill":"circle") }
+                                            if index==6 { Image(systemName:state.autoStart ? "checkmark.circle.fill":"circle") }
+                                        }.frame(maxWidth:.infinity,alignment:.leading).padding(9)
+                                            .background(selection==index ? Color.cyan.opacity(0.18):Color.clear,in:RoundedRectangle(cornerRadius:8))
+                                    }.id(index).disabled((3...5).contains(index) && (!state.controlReady || state.controlBusy))
+                                }
+                                if !state.controlReady { Text("Connecting Steam controls…").font(.caption) }
+                                if let message=state.controlStatus { Text(message).font(.caption).foregroundStyle(.secondary) }
+                            }.padding(20)
+                        }.frame(width:min(390,max(240,geo.size.width-32)),height:min(560,max(180,geo.size.height-insets.top-insets.bottom-24)))
+                            .background(.regularMaterial,in:RoundedRectangle(cornerRadius:24))
+                            .padding(.top,max(insets.top,12)).padding(.trailing,max(insets.trailing,12))
+                            .onChange(of:selection) { _,value in reader.scrollTo(value,anchor:.center) }
+                    }
                 } else {
-                    Button { state.menu = true } label: {
-                        Image(systemName: "line.3.horizontal").font(.title3.bold()).frame(width: 48, height: 48)
-                    }.buttonStyle(.plain).background(.regularMaterial, in: Circle())
-                        .accessibilityLabel("iDeck options")
-                        .padding(.top, max(geo.safeAreaInsets.top, 10)).padding(.trailing, max(geo.safeAreaInsets.trailing, 12))
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { state.menuRect = $0 }
+                    Button { state.menu=true } label: {
+                        Image(systemName:"line.3.horizontal").font(.title3.bold()).frame(width:48,height:48)
+                    }.buttonStyle(.plain).background(.regularMaterial,in:Circle())
+                        .accessibilityLabel("iDeck options — drag to move")
+                        .onGeometryChange(for:CGRect.self) { $0.frame(in:.global) } action: { state.menuRect=$0 }
+                        .highPriorityGesture(DragGesture(minimumDistance:8).onChanged { value in
+                            if dragBase==nil { dragBase=resting };drag=value.translation
+                        }.onEnded { value in
+                            let origin=dragBase ?? resting
+                            let point=CGPoint(x:origin.x+value.translation.width,y:origin.y+value.translation.height)
+                            let clamped=IDeckOverlayPosition.center(size:geo.size,saved:CGPoint(x:point.x/max(1,geo.size.width),y:point.y/max(1,geo.size.height)),left:insets.leading,top:insets.top,right:insets.trailing,bottom:insets.bottom)
+                            savedX=clamped.x/max(1,geo.size.width);savedY=clamped.y/max(1,geo.size.height);dragBase=nil;drag = .zero
+                        })
+                        .position(current)
                 }
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.frame(width:geo.size.width,height:geo.size.height,alignment:.topTrailing)
         }.preferredColorScheme(.dark)
-        .onAppear { LibraryController.shared.configure(enabled: true, ownsInput: state.menu) }
-        .onChange(of: state.menu) { _, open in LibraryController.shared.configure(enabled: true, ownsInput: open) }
-        .onChange(of: controls.visible) { _, visible in
-            if visible && controls.controls.isEmpty {
-                ControlPresetsModel.shared.load(ControlPresetLayout.xboxID, screen: ControlPresetsModel.currentScreen(), reason: "ideck-first-overlay")
+        .onAppear { LibraryController.shared.configure(enabled:true,ownsInput:state.menu) }
+        .onChange(of:state.menu) { _,open in LibraryController.shared.configure(enabled:true,ownsInput:open) }
+        .onChange(of:controls.visible) { _,visible in
+            if visible && !controls.controls.contains(where: { $0.action.padName.map(TouchPadAction.supported) ?? false }) {
+                ControlPresetsModel.shared.load(ControlPresetLayout.xboxID,screen:ControlPresetsModel.currentScreen(),reason:"ideck-controller-overlay")
             }
         }
-        .sheet(isPresented: $showSettings) { AllSettingsView() }
+        .confirmationDialog("Exit the running game and return to Steam?",isPresented:$confirmExit,titleVisibility:.visible) {
+            Button("Exit game",role:.destructive) { state.command(.exitGame) }
+        } message: { Text("The game receives a normal close request. Confirm any save prompt inside the game.") }
+        .confirmationDialog("Change Steam account?",isPresented:$confirmAccount,titleVisibility:.visible) {
+            Button("Open Steam account chooser") { state.command(.changeAccount) }
+        } message: { Text("Steam handles switching accounts. Your installed games and saves stay in iDeck.") }
+        .sheet(isPresented:$showSettings) { AllSettingsView() }
         .onReceive(LibraryController.shared.commands) { command in
-            if command == "menu" { state.menu.toggle() }
-            if command == "back" { state.menu = false }
+            if command=="menu" { state.menu.toggle() }
+            if command=="back" { state.menu=false }
             if state.menu && !showSettings {
-                if command == "up" { selection = max(0, selection - 1) }
-                if command == "down" { selection = min(5, selection + 1) }
-                if command == "accept" { accept() }
+                if command=="up" { selection=max(0,selection-1) }
+                if command=="down" { selection=min(labels.count-1,selection+1) }
+                if command=="accept" { activate() }
             }
         }
     }
 }
+
 #endif

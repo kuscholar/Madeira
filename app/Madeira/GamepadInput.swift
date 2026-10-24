@@ -40,9 +40,9 @@ final class GamepadInput: @unchecked Sendable {
     /// Some games enumerate only at startup. A physical controller connected
     /// before Play reserves player 1 until this Wine session ends, so a delayed
     /// accessory profile or a brief reconnect cannot hide it from enumeration.
-    @MainActor func reserveSessionSlot(touchControls: Bool) {
+    @MainActor func reserveSessionSlot(touchControls: Bool, virtualController: Bool = false) {
         guard Self.enabled else { return }
-        let touch = touchControls && Self.touchEnabled && Self.optIn("MADEIRA_PAD_EARLY_SLOT")
+        let touch = Self.touchEnabled && (virtualController || (touchControls && Self.optIn("MADEIRA_PAD_EARLY_SLOT")))
         let paired = !GCController.controllers().isEmpty
         guard touch || paired else { return }
         queue.sync { touchState.reserved = true; sample() }
@@ -90,8 +90,9 @@ final class GamepadInput: @unchecked Sendable {
     /// wineserver starts (ContentView.runWineFullSequence): the wineserver and
     /// the first Wine process read MADEIRA_HIDPAD to create the device and its
     /// registry entries. In XInput mode it only unsets that and logs.
-    @MainActor func beginPadSession() {
-        let mode = Self.configuredPadMode()
+    @MainActor func beginPadSession(steamUI: Bool = false) {
+        let configured = Self.configuredPadMode()
+        let mode = steamUI && configured.value == "xinput" ? (value:"generic",source:"ideck") : configured
         let output = Self.configuredPadOutput()
         unsetenv("MADEIRA_HIDPAD"); unsetenv("MADEIRA_HIDPAD_NAME")
         // An earlier session in this app run may have taken player 1 off XInput.
@@ -117,7 +118,7 @@ final class GamepadInput: @unchecked Sendable {
         }
         setenv("MADEIRA_HIDPAD", kind, 1)
         if kind == "generic", let name = first?.vendorName { setenv("MADEIRA_HIDPAD_NAME", name, 1) }
-        let keepXInput = Self.optIn("MADEIRA_HIDPAD_XINPUT")
+        let keepXInput = steamUI || Self.optIn("MADEIRA_HIDPAD_XINPUT")
         queue.async { [self] in hidActive = true; hidKeepsXInput = keepXInput; sample() }
         LogStore.shared.log("[hid-pad] ml2100 session mode=\(mode.value) source=\(mode.source) kind=\(kind) "
                             + "pad=\(first?.productCategory ?? "none") xinput-slot0=\(keepXInput ? "kept" : "off")")

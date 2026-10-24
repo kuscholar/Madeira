@@ -6,6 +6,17 @@ root = Path(__file__).resolve().parents[2]
 s = (root / 'app/Madeira/SteamUIExperiment.swift').read_text()
 policy = s[s.index('enum SteamUIExperiment {'):s.index('\n@MainActor\nfinal class SteamUIEvidence')]
 test = r'''
+let screen=CGSize(width:932,height:430)
+let corner=IDeckOverlayPosition.center(size:screen,saved:CGPoint(x:-1,y:-1),left:59,top:0,right:59,bottom:21)
+assert(corner.x==841 && corner.y==32)
+let moved=IDeckOverlayPosition.center(size:screen,saved:CGPoint(x:0.5,y:0.6),left:59,top:0,right:59,bottom:21)
+assert(abs(moved.x-466)<0.001 && abs(moved.y-258)<0.001)
+let edge=IDeckOverlayPosition.center(size:screen,saved:CGPoint(x:4,y:5),left:59,top:0,right:59,bottom:21)
+assert(edge.x==841 && edge.y==377)
+assert(IDeckCommand(rawValue:"change-account") == .changeAccount)
+assert(IDeckCommand(rawValue:"exit-game") == .exitGame)
+assert(IDeckCommand(rawValue:"menu") == .steamMenu)
+assert(IDeckCommand(rawValue:"shell rm") == nil)
 let args = ["/Applications/iDeck"]
 assert(IDeckRules.shouldAutoStart(setup: true, ready: true, automatic: true, arguments: args))
 for probe in ["madeira-runtime-diagnostics", "madeira-steam-big-picture-x86-experiment", "madeira-fls-diagnostics"] {

@@ -710,7 +710,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n# Copy Wine Mono into the app (build/wine-mono/bundle.sh; inputs from build/wine-mono/fetch.sh,\n# see docs/BUILDING.md). Without build/wine-mono/wine-mono-<ver> the app is built without Mono.\nbash \"$SRCROOT/../build/wine-mono/bundle.sh\" \"$CODESIGNING_FOLDER_PATH/wine-mono\"\n";
+			shellScript = "set -e\n# Copy Wine Mono into the app (build/wine-mono/bundle.sh; inputs from build/wine-mono/fetch.sh,\n# see docs/BUILDING.md). Without build/wine-mono/wine-mono-<ver> the app is built without Mono.\nbash \"$SRCROOT/../build/wine-mono/bundle.sh\" \"$CODESIGNING_FOLDER_PATH/wine-mono\"\nbash \"$SRCROOT/../build/ideck-control/bundle.sh\" \"$CODESIGNING_FOLDER_PATH/ideck-control.exe\"\n";
 		};
 		B3000007 /* Embed StikJIT */ = {
 			isa = PBXShellScriptBuildPhase;
