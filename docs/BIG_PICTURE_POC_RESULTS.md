@@ -1639,3 +1639,26 @@ not usable UI. Next: fresh available device and actual current Build53 identity,
 then determine physical home/library response before another runtime patch.
 Preserve standalone iDeck main, original primary and active sessions. Do not use
 old PID21625/24419, stale research prompts or old build numbers as current state.
+
+### 2026-10-25 scheduled continuity and evidence-index correction
+
+Verified origin kuscholar/Madeira, branch experiment/steam-big-picture and clean
+worktree at 1a93ebff613b143def9a83416d04ea61f5cc2ed7. Live ls-remote agrees;
+main remains ee9fd2f4c21229dfce31a25c211d44df267336d8. Standalone iDeck is now
+6fad3df; its untracked Demo.gif is preserved. No concurrent runtime experiment
+was started or installed app replaced.
+
+One xcrun devicectl list devices attempt timed out waiting for CoreDeviceService
+to initialize (devicectl error 1). This is a host discovery failure, not evidence
+of phone lock, crash, or the state of Steam. No repeated availability polling,
+old-PID action, credential entry or process interruption followed.
+
+Phase remains compatibility/product validation. Hypothesis and next discriminator
+are unchanged: first establish actual current home/library response on the
+installed Build 53 before attributing another runtime failure. No new device
+artifact supports a patch. The compatibility matrix's opening Build 11–15 table
+was stale without a prominent boundary; a dated summary now distinguishes that
+historical table from subsequent login/BPM observations and Build 51 evidence.
+Minimal patch is documentation only. Validation: remote/worktree inspection and
+git diff --check; no runtime code changed, so prior runtime tests were not rerun.
+No new GO assessment, Bluetooth, return-to-Steam or stable-navigation claim.

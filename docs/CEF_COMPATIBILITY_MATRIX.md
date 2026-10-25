@@ -1,5 +1,20 @@
 # Steam CEF compatibility matrix
 
+## Latest evidence boundary — 2026-10-25
+
+The initial table below is a Build 11–15 historical snapshot, not the latest
+device status. Later detailed evidence is in BIG_PICTURE_POC_RESULTS.md and
+IDECK_LOGIN_TRANSITION_EVIDENCE.json. Genuine interactive login and Big Picture
+library browsing have subsequently been observed; the user reported PC gameplay.
+Build 51 artifacts establish saved-login Success/OK and BrowserReady, but not
+interactive home or stable navigation after the latest fixes. Build 53 branding,
+installation and launch do not establish a new runtime regression pass.
+Bluetooth, game-return and long-session stability remain unverified.
+
+The 2026-10-25 scheduled availability check timed out initializing the host
+CoreDeviceService (devicectl error 1). It supplied no current phone lock state,
+app PID, screenshot or crash evidence. No device session was restarted.
+
 Revision scope: experimental branch based on ee9fd2f, audited in
 BIG_PICTURE_ARCHITECTURE.md. Updated 2026-10-23. Historical evidence refers to
 published notes at deezhizyu/madeira 97e2ce2, not a new device run.
